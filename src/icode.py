@@ -429,5 +429,112 @@ async def update_device_setting(deviceId: str, companyId: str, deviceSetting: di
         connection.close()
 
 
+@app.get("/employee/get/{emp_id}")
+async def get_employee(emp_id: str):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as mycursor:
+            sql = "CALL GetEmployee(%s);"
+            mycursor.execute(sql, (emp_id,))  # Enclose emp_id in a tuple
+            employee = mycursor.fetchall()
+            if employee:
+                return employee
+            else:
+                return {"message": f"Employee with ID '{emp_id}' not found"}
+
+    except pymysql.Error as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+
+# POST request to create a employee
+@app.post("/employee/create")
+async def create_employee(employee: dict = Body(...)):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as mycursor:
+            # Extract data from request body
+            empid = employee.get("empid")
+            cid = employee.get("cid")
+            fname = employee.get("fname")  # Assuming clogo is a byte stream
+            lname = employee.get("lname")
+            isactive =  bool(employee.get("isactive").lower())
+            phoneno = employee.get("phoneno")
+            pin = employee.get("pin")
+
+            # Call the stored procedure
+            sql = "CALL CreateEmployee(%s, %s, %s, %s, %s, %s, %s);"
+            mycursor.execute(sql, (empid, cid, fname, lname, isactive, phoneno,pin))
+            connection.commit()  # Commit changes
+
+            return {"message": "Company created successfully"}
+
+    except pymysql.Error as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+# DELETE request to delete a company
+@app.delete("/employee/delete/{emp_id}")
+async def delete_employee(emp_id: str):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as mycursor:
+            sql = "CALL DeleteEmployee(%s)"
+
+            mycursor.execute(sql, (emp_id,))
+            connection.commit()
+
+            return {"message": f"employee with ID '{emp_id}' deleted successfully"}
+
+    except pymysql.Error as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+# PUT request to update a employee
+@app.put("/employee/update/{emp_id}")
+async def update_employee(emp_id: str, employee: dict = Body(...)):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as mycursor:
+            # Extract data from request body and path parameter
+            empid = employee.get("empid")
+            cid = employee.get("cid")
+            fname = employee.get("fname")  # Assuming clogo is a byte stream
+            lname = employee.get("lname")
+            isactive =  bool(employee.get("isactive").lower())
+            phoneno = employee.get("phoneno")
+            pin = employee.get("pin")
+
+            sql = "CALL UpdateEmployee(%s, %s, %s, %s, %s, %s, %s)"
+            mycursor.execute(sql, (empid, cid, fname, lname, isactive, phoneno,pin))
+            connection.commit()
+
+            return {"message": f"Company with ID '{emp_id}' updated successfully"}
+
+    except pymysql.Error as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+
 
 handler=mangum.Mangum(app)

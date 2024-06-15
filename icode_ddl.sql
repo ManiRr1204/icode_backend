@@ -391,8 +391,120 @@ END //
 
 DELIMITER ;
 
+CREATE TABLE `employee` (
+  `empid` char(36) PRIMARY KEY,
+  `cid` char(36),
+  `fname` varchar(255),
+  `lname` varchar(255),
+  `isactive` boolean,
+  `phoneno` varchar(255),
+  `pin` int
+);
+
+
+DELIMITER //
+
+CREATE PROCEDURE CreateEmployee(
+    IN p_EmpID CHAR(36),
+    IN p_CID CHAR(36),
+    IN p_FName VARCHAR(255),
+    IN p_LName VARCHAR(255),
+    IN p_IsActive BOOLEAN,
+    IN p_PhoneNo VARCHAR(255),
+    IN p_Pin INT
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+    END;
+
+    START TRANSACTION;
+
+    INSERT INTO employee (empid, cid, fname, lname, isactive, phoneno, pin)
+    VALUES (p_EmpID, p_CID, p_FName, p_LName, p_IsActive, p_PhoneNo, p_Pin);
+
+    COMMIT;
+END //
+
+DELIMITER ;
+CALL CreateEmployee('68f9bafc-2390-11ef-82b6-02d83582ee21', '68f9bafc-2390-11ef-82b6-02d83582ee21', 'John', 'Doe', TRUE, '555-1234', 1234);
+select * from employee;
+
+DELIMITER //
+
+CREATE PROCEDURE GetEmployee(
+    IN p_EmpID CHAR(36)
+)
+BEGIN
+    SELECT * FROM employee WHERE empid = p_EmpID;
+END //
+
+DELIMITER ;
+CALL GetEmployee('68f9bafc-2390-11ef-82b6-02d83582ee21');
+
+DELIMITER //
+
+CREATE PROCEDURE UpdateEmployee(
+    IN p_EmpID CHAR(36),
+    IN p_CID CHAR(36),
+    IN p_FName VARCHAR(255),
+    IN p_LName VARCHAR(255),
+    IN p_IsActive BOOLEAN,
+    IN p_PhoneNo VARCHAR(255),
+    IN p_Pin INT
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+    END;
+
+    START TRANSACTION;
+
+    UPDATE employee
+    SET cid = p_CID,
+        fname = p_FName,
+        lname = p_LName,
+        isactive = p_IsActive,
+        phoneno = p_PhoneNo,
+        pin = p_Pin
+    WHERE empid = p_EmpID;
+
+    COMMIT;
+END //
+
+DELIMITER ;
+CALL UpdateEmployee('68f9bafc-2390-11ef-82b6-02d83582ee21', '68f9bafc-2390-11ef-82b6-02d83582ee21', 'John', 'Jackes', TRUE, '555-1234', 1234);
+
+
+DELIMITER //
+
+CREATE PROCEDURE DeleteEmployee(
+    IN p_EmpID CHAR(36)
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+    END;
+
+    START TRANSACTION;
+
+    DELETE FROM employee WHERE empid = p_EmpID;
+
+    COMMIT;
+END //
+
+DELIMITER ;
+CALL DeleteEmployee('68f9bafc-2390-11ef-82b6-02d83582ee21');
+
+
+
 ALTER TABLE `customer` ADD FOREIGN KEY (`cid`) REFERENCES `company` (`cid`);
 
 ALTER TABLE `login` ADD FOREIGN KEY (`cid`) REFERENCES `company` (`cid`);
 
 ALTER TABLE `deviceSetting` ADD FOREIGN KEY (`cid`) REFERENCES `company` (`cid`);
+
+ALTER TABLE `employee` ADD FOREIGN KEY (`cid`) REFERENCES `company` (`cid`);
