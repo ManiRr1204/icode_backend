@@ -4,9 +4,9 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-mysql-connector-python = "*"
 fastapi = "*"
 mangum = "*"
+pymysql = "*"
 
 [dev-packages]
 
