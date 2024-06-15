@@ -19,11 +19,11 @@ def connect_to_database():
         return None
 
 @app.get("/test")
-def call_stored_procedure():
+def get_test():
    return {"response": "Test get call successfully called"}
 
 @app.get("/company/get")
-def call_stored_procedure():
+def get_all_companies():
     connection = connect_to_database()
     if not connection:
         return {"error": "Failed to connect to database"}
@@ -141,6 +141,94 @@ async def update_company(company_id: str, company: dict = Body(...)):
     finally:
         connection.close()
 
+
+@app.get("/customer/get/{customer_id}")
+async def get_customer_by_id(customer_id: str):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as mycursor:
+            sql = "CALL GetCustomer(%s)" 
+            mycursor.execute(sql, (customer_id,))
+            customer = mycursor.fetchone()
+            if customer:
+                return customer
+            else:
+                return {"message": f"Customer with ID '{customer_id}' not found"}
+
+    except pymysql.connector.Error as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+# POST request to create a company
+@app.post("/customer/create")
+async def create_customer(customer = Body(...)):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as mycursor:
+            # Extract data from request body (assuming it matches stored procedure parameters)
+
+            sql = "CALL CreateCustomer(%(customerid)s, %(cid)s, %(fname)s, %(lname)s, %(address)s, %(phonenumber)s, %(centername)s, %(email)s, %(isactive)s)"
+            mycursor.execute(sql, customer)
+            connection.commit()
+
+            return {"message": "Customer created successfully"}
+
+    except pymysql.connector.Error as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+# DELETE request to delete a customer_id
+@app.delete("/customer/delete/{customer_id}")
+async def delete_customer(customer_id: str):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as mycursor:
+            sql = "CALL DeleteCustomer(%s)"
+            mycursor.execute(sql, (customer_id,))
+            connection.commit()
+
+            return {"message": f"Customer with ID '{customer_id}' deleted successfully"}
+
+    except pymysql.connector.Error as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+# PUT request to update a company
+@app.put("/customer/update/{customer_id}")
+async def update_customer(customer_id: str, customer = Body(...)):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as mycursor:
+
+            sql = "CALL UpdateCustomer(%(customerid)s, %(cid)s, %(fname)s, %(lname)s, %(address)s, %(phonenumber)s, %(centername)s, %(email)s, %(isactive)s)"
+            mycursor.execute(sql, customer)
+            connection.commit()  # Commit changes
+
+            return {"message": f"Customer with ID '{customer_id}' updated successfully"}
+
+    except pymysql.connector.Error as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
 
 
 handler=mangum.Mangum(app)
