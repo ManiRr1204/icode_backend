@@ -326,5 +326,108 @@ async def update_login(username: str, login: dict = Body(...)):
     finally:
         connection.close()
 
+@app.get("/deviceSetting/get/{deviceId},{companyId}")
+async def get_device_setting(deviceId: str,companyId : str):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as mycursor:
+            sql = "CALL GetDeviceSetting(%s, %s);"
+            mycursor.execute(sql, (deviceId,companyId,))  # Enclose emp_id in a tuple
+            myresult = mycursor.fetchall()
+            if myresult:
+                return myresult
+            else:
+                return {"message": f"{companyId} with device id '{deviceId}' not found"}
+
+    except pymysql.Error as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+
+# POST request to create a employee
+@app.post("/deviceSetting/create")
+async def create_device_setting(deviceSetting: dict = Body(...)):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as mycursor:
+            # Extract data from request body
+            deviceid = deviceSetting.get("deviceid")
+            cid = deviceSetting.get("cid")
+            devicename = deviceSetting.get("devicename")  # Assuming clogo is a byte stream
+            regid = deviceSetting.get("regid")
+            isactive =  bool(deviceSetting.get("isactive").lower())
+
+            # Call the stored procedure
+            sql = "CALL CreateDeviceSetting(%s, %s, %s, %s, %s);"
+            mycursor.execute(sql, (deviceid, cid, devicename, regid, isactive))
+            connection.commit()  # Commit changes
+
+            return {"message": "deviceSetting created successfully"}
+
+    except pymysql.Error as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+# DELETE request to delete a company
+@app.delete("/deviceSetting/delete/{deviceId},{companyId}")
+async def delete_device_setting(deviceId: str,companyId: str):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as mycursor:
+            sql = "CALL DeleteDeviceSetting(%s,%s)"
+
+            mycursor.execute(sql, (deviceId,companyId,))
+            connection.commit()
+
+            return {"message": f"deviceSetting with ID '{deviceId}' deleted successfully"}
+
+    except pymysql.Error as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+# PUT request to update a employee
+@app.put("/deviceSetting/update/{deviceId},{companyId}")
+async def update_device_setting(deviceId: str, companyId: str, deviceSetting: dict = Body(...)):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as mycursor:
+            # Extract data from request body and path parameter
+            deviceid = deviceSetting.get("deviceid")
+            cid = deviceSetting.get("cid")
+            devicename = deviceSetting.get("devicename") 
+            regid = deviceSetting.get("regid")
+            isactive =  bool(deviceSetting.get("isactive").lower())
+
+            sql = "CALL UpdateDeviceSetting(%s, %s, %s, %s, %s)"
+            mycursor.execute(sql, (deviceid, cid, devicename, regid, isactive))
+            connection.commit()
+
+            return {"message": f"deviceSetting with ID '{deviceId}' updated successfully"}
+
+    except pymysql.Error as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+
 
 handler=mangum.Mangum(app)
