@@ -1,22 +1,137 @@
-create database icodeTest;
-use icodeTest;
+create database icode;
+use icode;
 
--- 68f9bafc-2390-11ef-82b6-02d83582ee21
-CREATE TABLE `company` (
-  `cid` char(36) PRIMARY KEY,
-  `cname` varchar(36),
-  `clogo` blob,
-  `caddress` varchar(255),
-  `username` varchar(255),
-  `password` varchar(255)
+CREATE TABLE `Company` (
+  `CID` char(36),
+  `CName` varchar(36),
+  `CLogo` blob,
+  `CAddress` varchar(255),
+  `UserName` varchar(255),
+  `Password` varchar(255),
+  PRIMARY KEY (`CID`, `UserName`)
 );
 
+CREATE TABLE `Customer` (
+  `CustomerID` char(36) PRIMARY KEY,
+  `CID` char(36),
+  `FName` varchar(255),
+  `LName` varchar(255),
+  `Address` varchar(255),
+  `PhoneNumber` varchar(255),
+  `Email` varchar(255),
+  `IsActive` boolean
+);
 
--- Store Procedures for Companyu Table-- 
+ALTER TABLE `Customer` ADD FOREIGN KEY (`CID`) REFERENCES `Company` (`CID`);
+
+CREATE TABLE `Employee` (
+  `EmpID` char(36) PRIMARY KEY,
+  `CID` char(36),
+  `FName` varchar(255),
+  `LName` varchar(255),
+  `IsActive` boolean,
+  `PhoneNumber` varchar(255),
+  `Pin` int
+);
+
+ALTER TABLE `Employee` ADD FOREIGN KEY (`CID`) REFERENCES `Company` (`CID`);
+
+
+CREATE TABLE `DeviceSetting` (
+  `DeviceID` char(36),
+  `CID` char(36),
+  `DeviceName` varchar(255),
+  `RegID` varchar(255),
+  `IsActive` boolean,
+  PRIMARY KEY (`DeviceID`, `CID`)
+);
+
+ALTER TABLE `DeviceSetting` ADD FOREIGN KEY (`CID`) REFERENCES `Company` (`CID`);
+
+
+CREATE TABLE `ContactUS` (
+    `RequestID` CHAR(36) PRIMARY KEY,
+    `CID` char(36),
+    `RequestorEmail` VARCHAR(255) NOT NULL,
+    `ConcernsQuestions` TEXT,
+    `PhoneNumber` VARCHAR(20),
+    `Status` VARCHAR(50)
+);
+
+ALTER TABLE `ContactUS` ADD FOREIGN KEY (`CID`) REFERENCES `Company` (`CID`);
+
+CREATE TABLE `ReportRecipients` (
+  `CheckinID` char(36) PRIMARY KEY,
+  `CID` char(36),
+  `EmailId` varchar(255),
+  `Exec` boolean
+);
+
+ALTER TABLE `ReportRecipients` ADD FOREIGN KEY (`CID`) REFERENCES `Company` (`CID`);
+
+CREATE TABLE `CheckInType` (
+  `TypeID` char(36) PRIMARY KEY,
+  `CID` char(36),
+  `TypeNames` varchar(255)
+);
+
+ALTER TABLE `CheckInType` ADD FOREIGN KEY (`CID`) REFERENCES `Company` (`CID`);
+
+CREATE TABLE `ReportType` (
+  `ReportTypeID` char(36) PRIMARY KEY,
+  `ReportTypeName` varchar(255)
+);
+
+CREATE TABLE `CompanyReportType` (
+  `CompanyReportTypeID` char(36) PRIMARY KEY,
+  `CID` char(36),
+  `ReportTypeID` char(36),
+  `IsDailyReportActive` boolean
+);
+
+ALTER TABLE `CompanyReportType` ADD FOREIGN KEY (`CID`) REFERENCES `Company` (`CID`);
+ALTER TABLE `CompanyReportType` ADD FOREIGN KEY (`ReportTypeID`) REFERENCES `ReportType` (`ReportTypeID`);
+
+CREATE TABLE `ReportSchedule` (
+  `ReportID` char(36),
+  `CID` char(36),
+  `ReportTypeID` char(36),
+  `IsDelivered` boolean,
+  `IsActive` boolean,
+  `ReportTimeGenerated` datetime,
+  `ReportTimeSent` datetime,
+  `TextReportTime` varchar(255),
+  `CreatedAt` datetime,
+  `UpdatedAt` datetime,
+  PRIMARY KEY (`ReportID`, `CID`)
+);
+
+ALTER TABLE `ReportSchedule` ADD FOREIGN KEY (`CID`) REFERENCES `Company` (`CID`);
+ALTER TABLE `ReportSchedule` ADD FOREIGN KEY (`ReportTypeID`) REFERENCES `ReportType` (`ReportTypeID`);
+
+CREATE TABLE `TransactionStatus` (
+  `TransactionID` char(36),
+  `CID` char(36),
+  `UserName` varchar(255),
+  `CreditCardEncrypted` varchar(255),
+  `ExpiryDate` date,
+  `CVV` int ,
+  `TransactionAmount` decimal(10,2),
+  `TransactionStartTime` datetime,
+  `TransactionEndTime` datetime,
+  `TransactionStatus` varchar(255),
+  `BillingAddress` varchar(255),
+  PRIMARY KEY (`TransactionID`,`CID`,`UserName`)
+);
+
+ALTER TABLE `TransactionStatus` ADD FOREIGN KEY (`CID`, `UserName`) REFERENCES `Company` (`CID`,`UserName`);
+
+-- Stored Procedures-- 
+-- Store Procedures for Company Table-- 
 
 DELIMITER //
 
-CREATE PROCEDURE CreateCompany(
+CREATE PROCEDURE spCreateCompany(
   IN p_cid CHAR(36),
   IN p_cname VARCHAR(36),
   IN p_clogo BLOB,
@@ -25,7 +140,7 @@ CREATE PROCEDURE CreateCompany(
   IN p_password VARCHAR(255)
 )
 BEGIN
-    INSERT INTO company (cid, cname, clogo, caddress, username, password)
+    INSERT INTO Company (CID, CName, CLogo, CAddress, UserName, Password)
   VALUES (p_cid, p_cname, p_clogo, p_caddress, p_username, p_password);
 END //
 
@@ -33,27 +148,38 @@ DELIMITER ;
 
 DELIMITER //
 
-CREATE PROCEDURE get_all_companies ()
+CREATE PROCEDURE spGetAllCompanies ()
 BEGIN
-  SELECT * FROM company;
+  SELECT * FROM Company;
 END//
 
 DELIMITER ;
 
 DELIMITER //
 
-CREATE PROCEDURE get_company (
+CREATE PROCEDURE spGetCompany (
 IN p_cid CHAR(36)
 )
 BEGIN
-  SELECT * FROM company WHERE cid = p_cid;
+  SELECT * FROM Company WHERE CID = p_cid;
 END//
 
 DELIMITER ;
 
 DELIMITER //
 
-CREATE PROCEDURE update_company (
+CREATE PROCEDURE spGetUser (
+IN p_username CHAR(36)
+)
+BEGIN
+  SELECT * FROM Company WHERE UserName = p_username;
+END//
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE PROCEDURE spUpdateCompany (
   IN p_cid CHAR(36),
   IN p_cname VARCHAR(36),
   IN p_clogo BLOB,
@@ -62,56 +188,38 @@ CREATE PROCEDURE update_company (
   IN p_password VARCHAR(255)
 )
 BEGIN
-  UPDATE company
-  SET cname = p_cname,
-      clogo = p_clogo,
-      caddress = p_caddress,
-      username = p_username,
-      password = p_password
-  WHERE cid = p_cid;
+  UPDATE Company
+  SET CName = p_cname,
+      CLogo = p_clogo,
+      CAddress = p_caddress,
+      UserName = p_username,
+      Password = p_password
+  WHERE CID = p_cid;
 END//
 
 DELIMITER ;
 
 DELIMITER //
 
-CREATE PROCEDURE delete_company (
+CREATE PROCEDURE spDeleteCompany (
   IN p_cid CHAR(36)
 )
 BEGIN
-  DELETE FROM company WHERE cid = p_cid;
+  DELETE FROM Company WHERE CID = p_cid;
 END//
 
 DELIMITER ;
 
--- 68f9bafc-2390-11ef-82b6-02d83582ee21
-CALL CreateCompany("68f9bafc-2390-11ef-82b6-02d83582ee21", 'CompanyName', NULL, '1234 Address St.', 'username', 'password');
-select * from company;
-
--- 9052c6d8-2391-11ef-82b6-02d83582ee21
-CREATE TABLE `customer` (
-  `customerid` char(36) PRIMARY KEY,
-  `cid` char(36),
-  `fname` varchar(255),
-  `lname` varchar(255),
-  `address` varchar(255),
-  `phonenumber` varchar(255),
-  `centername` varchar(255),
-  `email` varchar(255),
-  `isactive` boolean
-);
-
-
+-- Store Procedures for Customer Table-- 
 DELIMITER //
 
-CREATE PROCEDURE CreateCustomer(
+CREATE PROCEDURE spCreateCustomer(
     IN p_CustomerID CHAR(36),
     IN p_CID CHAR(36),
     IN p_FName VARCHAR(255),
     IN p_LName VARCHAR(255),
     IN p_Address VARCHAR(255),
     IN p_PhoneNumber VARCHAR(255),
-    IN p_CenterName VARCHAR(255),
     IN p_Email VARCHAR(255),
     IN p_IsActive BOOLEAN
 )
@@ -123,8 +231,8 @@ BEGIN
 
     START TRANSACTION;
 
-    INSERT INTO customer (customerid, cid, fname, lname, address, phonenumber, centername, email, isactive)
-    VALUES (p_CustomerID, p_CID, p_FName, p_LName, p_Address, p_PhoneNumber, p_CenterName, p_Email, p_IsActive);
+    INSERT INTO Customer (CustomerID, CID, FName, LName, Address, PhoneNumber, Email, IsActive)
+    VALUES (p_CustomerID, p_CID, p_FName, p_LName, p_Address, p_PhoneNumber, p_Email, p_IsActive);
 
     COMMIT;
 END //
@@ -134,125 +242,28 @@ DELIMITER ;
 
 DELIMITER //
 
-CREATE PROCEDURE GetCustomer(
+CREATE PROCEDURE spGetCustomer(
     IN p_CustomerID CHAR(36)
-)
-BEGIN
-    SELECT customerid, cid, fname, lname, address, phonenumber, centername, email, isactive
-    FROM customer
-    WHERE customerid = p_CustomerID;
-END //
-
-DELIMITER ;
-
-DELIMITER //
-
-CREATE PROCEDURE UpdateCustomer(
-    IN p_CustomerID CHAR(36),
-    IN p_CID CHAR(36),
-    IN p_FName VARCHAR(255),
-    IN p_LName VARCHAR(255),
-    IN p_Address VARCHAR(255),
-    IN p_PhoneNumber VARCHAR(255),
-    IN p_CenterName VARCHAR(255),
-    IN p_Email VARCHAR(255),
-    IN p_IsActive BOOLEAN
-)
-BEGIN
-    DECLARE EXIT HANDLER FOR SQLEXCEPTION
-    BEGIN
-        ROLLBACK;
-    END;
-
-    START TRANSACTION;
-
-    UPDATE customer
-    SET cid = p_CID,
-        fname = p_FName,
-        lname = p_LName,
-        address = p_Address,
-        phonenumber = p_PhoneNumber,
-        centername = p_CenterName,
-        email = p_Email,
-        isactive = p_IsActive
-    WHERE customerid = p_CustomerID;
-
-    COMMIT;
-END //
-
-DELIMITER ;
-
-DELIMITER //
-
-CREATE PROCEDURE DeleteCustomer(
-    IN p_CustomerID CHAR(36)
-)
-BEGIN
-    DECLARE EXIT HANDLER FOR SQLEXCEPTION
-    BEGIN
-        ROLLBACK;
-    END;
-
-    START TRANSACTION;
-
-    DELETE FROM customer WHERE customerid = p_CustomerID;
-
-    COMMIT;
-END //
-
-DELIMITER ;
-
-
-CREATE TABLE `login` (
-  `username` varchar(255) PRIMARY KEY,
-  `cid` char(36),
-  `password` varchar(255)
-);
-
-DELIMITER //
-
-CREATE PROCEDURE CreateLogin(
-    IN p_UserName VARCHAR(255),
-    IN p_CID CHAR(36),
-    IN p_Password VARCHAR(255)
-)
-BEGIN
-    DECLARE EXIT HANDLER FOR SQLEXCEPTION
-    BEGIN
-        ROLLBACK;
-    END;
-
-    START TRANSACTION;
-
-    INSERT INTO login (username, cid, password)
-    VALUES (p_UserName, p_CID, p_Password);
-
-    COMMIT;
-END //
-
-DELIMITER ;
-
-select * from login;
-
-DELIMITER //
-
-CREATE PROCEDURE GetLogin(
-    IN p_UserName VARCHAR(255)
 )
 BEGIN
     SELECT *
-    FROM login
-    WHERE username = p_UserName;
+    FROM Customer
+    WHERE CustomerID = p_CustomerID;
 END //
 
 DELIMITER ;
 
 DELIMITER //
 
-CREATE PROCEDURE UpdateLogin(
-    IN p_UserName VARCHAR(255),
+CREATE PROCEDURE spUpdateCustomer(
+    IN p_CustomerID CHAR(36),
     IN p_CID CHAR(36),
-    IN p_Password VARCHAR(255)
+    IN p_FName VARCHAR(255),
+    IN p_LName VARCHAR(255),
+    IN p_Address VARCHAR(255),
+    IN p_PhoneNumber VARCHAR(255),
+    IN p_Email VARCHAR(255),
+    IN p_IsActive BOOLEAN
 )
 BEGIN
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
@@ -262,10 +273,15 @@ BEGIN
 
     START TRANSACTION;
 
-    UPDATE login
-    SET cid = p_CID,
-        password = p_Password
-    WHERE username = p_UserName;
+    UPDATE Customer
+    SET CID = p_CID,
+        FName = p_FName,
+        LName = p_LName,
+        Address = p_Address,
+        PhoneNumber = p_PhoneNumber,
+        Email = p_Email,
+        IsActive = p_IsActive
+    WHERE CustomerID = p_CustomerID;
 
     COMMIT;
 END //
@@ -274,8 +290,8 @@ DELIMITER ;
 
 DELIMITER //
 
-CREATE PROCEDURE DeleteLogin(
-    IN p_UserName VARCHAR(255)
+CREATE PROCEDURE spDeleteCustomer(
+    IN p_CustomerID CHAR(36)
 )
 BEGIN
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
@@ -285,25 +301,115 @@ BEGIN
 
     START TRANSACTION;
 
-    DELETE FROM login WHERE username = p_UserName;
+    DELETE FROM Customer WHERE CustomerID = p_CustomerID;
 
     COMMIT;
 END //
 
 DELIMITER ;
 
-CREATE TABLE `deviceSetting` (
-  `deviceid` char(36),
-  `cid` char(36),
-  `devicename` varchar(255),
-  `regid` varchar(255),
-  `isactive` boolean,
-  PRIMARY KEY (`deviceid`, `cid`)
-);
+
+-- Store Procedures for Employee Table-- 
 
 DELIMITER //
 
-CREATE PROCEDURE CreateDeviceSetting(
+CREATE PROCEDURE spCreateEmployee(
+    IN p_EmpID CHAR(36),
+    IN p_CID CHAR(36),
+    IN p_FName VARCHAR(255),
+    IN p_LName VARCHAR(255),
+    IN p_IsActive BOOLEAN,
+    IN p_PhoneNo VARCHAR(255),
+    IN p_Pin INT
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+    END;
+
+    START TRANSACTION;
+
+    INSERT INTO Employee (EmpID, CID, FName, LName, IsActive, PhoneNumber, Pin)
+    VALUES (p_EmpID, p_CID, p_FName, p_LName, p_IsActive, p_PhoneNo, p_Pin);
+
+    COMMIT;
+END //
+
+DELIMITER ;
+
+
+DELIMITER //
+
+CREATE PROCEDURE spGetEmployee(
+    IN p_EmpID CHAR(36)
+)
+BEGIN
+    SELECT * FROM Employee WHERE EmpID = p_EmpID;
+END //
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE PROCEDURE spUpdateEmployee(
+    IN p_EmpID CHAR(36),
+    IN p_CID CHAR(36),
+    IN p_FName VARCHAR(255),
+    IN p_LName VARCHAR(255),
+    IN p_IsActive BOOLEAN,
+    IN p_PhoneNo VARCHAR(255),
+    IN p_Pin INT
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+    END;
+
+    START TRANSACTION;
+
+    UPDATE Employee
+    SET CID = p_CID,
+        FName = p_FName,
+        LName = p_LName,
+        IsActive = p_IsActive,
+        PhoneNumber = p_PhoneNo,
+        Pin = p_Pin
+    WHERE EmpID = p_EmpID;
+
+    COMMIT;
+END //
+
+DELIMITER ;
+
+
+DELIMITER //
+
+CREATE PROCEDURE spDeleteEmployee(
+    IN p_EmpID CHAR(36)
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+    END;
+
+    START TRANSACTION;
+
+    DELETE FROM Employee WHERE EmpID = p_EmpID;
+
+    COMMIT;
+END //
+
+DELIMITER ;
+
+
+-- Store Procedures for DeviceSetting Table-- 
+
+DELIMITER //
+
+CREATE PROCEDURE spCreateDeviceSetting(
     IN p_DeviceID CHAR(36),
     IN p_CID CHAR(36),
     IN p_DeviceName VARCHAR(255),
@@ -318,7 +424,7 @@ BEGIN
 
     START TRANSACTION;
 
-    INSERT INTO deviceSetting (deviceid, cid, devicename, regid, isactive)
+    INSERT INTO DeviceSetting (DeviceID, CID, DeviceName, RegID, IsActive)
     VALUES (p_DeviceID, p_CID, p_DeviceName, p_RegID, p_IsActive);
 
     COMMIT;
@@ -329,12 +435,12 @@ DELIMITER ;
 
 DELIMITER //
 
-CREATE PROCEDURE GetDeviceSetting(
+CREATE PROCEDURE spGetDeviceSetting(
     IN p_DeviceID CHAR(36),
     IN p_CID CHAR(36)
 )
 BEGIN
-    SELECT * FROM deviceSetting WHERE deviceid = p_DeviceID AND cid = p_CID;
+    SELECT * FROM DeviceSetting WHERE DeviceID = p_DeviceID AND CID = p_CID;
 END //
 
 DELIMITER ;
@@ -342,7 +448,7 @@ DELIMITER ;
 
 DELIMITER //
 
-CREATE PROCEDURE UpdateDeviceSetting(
+CREATE PROCEDURE spUpdateDeviceSetting(
     IN p_DeviceID CHAR(36),
     IN p_CID CHAR(36),
     IN p_DeviceName VARCHAR(255),
@@ -357,11 +463,11 @@ BEGIN
 
     START TRANSACTION;
 
-    UPDATE deviceSetting
-    SET devicename = p_DeviceName,
-        regid = p_RegID,
-        isactive = p_IsActive
-    WHERE deviceid = p_DeviceID AND cid = p_CID;
+    UPDATE DeviceSetting
+    SET DeviceName = p_DeviceName,
+        RegID = p_RegID,
+        IsActive = p_IsActive
+    WHERE DeviceID = p_DeviceID AND CID = p_CID;
 
     COMMIT;
 END //
@@ -371,7 +477,7 @@ DELIMITER ;
 
 DELIMITER //
 
-CREATE PROCEDURE DeleteDeviceSetting(
+CREATE PROCEDURE spDeleteDeviceSetting(
     IN p_DeviceID CHAR(36),
     IN p_CID CHAR(36)
 )
@@ -383,7 +489,7 @@ BEGIN
 
     START TRANSACTION;
 
-    DELETE FROM deviceSetting WHERE deviceid = p_DeviceID AND cid = p_CID;
+    DELETE FROM DeviceSetting WHERE DeviceID = p_DeviceID AND CID = p_CID;
 
     COMMIT;
 END //
@@ -391,127 +497,95 @@ END //
 
 DELIMITER ;
 
-CREATE TABLE `employee` (
-  `empid` char(36) PRIMARY KEY,
-  `cid` char(36),
-  `fname` varchar(255),
-  `lname` varchar(255),
-  `isactive` boolean,
-  `phoneno` varchar(255),
-  `pin` int
-);
-
+-- Store Procedures for ContactUS Table-- 
 
 DELIMITER //
 
-CREATE PROCEDURE CreateEmployee(
-    IN p_EmpID CHAR(36),
+CREATE PROCEDURE spCreateContact(
+    IN p_requestId CHAR(36),
     IN p_CID CHAR(36),
-    IN p_FName VARCHAR(255),
-    IN p_LName VARCHAR(255),
-    IN p_IsActive BOOLEAN,
-    IN p_PhoneNo VARCHAR(255),
-    IN p_Pin INT
+    IN p_requestorEmail VARCHAR(255),
+    IN p_concerns_questions TEXT,
+    IN p_phoneNumber VARCHAR(20),
+    IN p_status VARCHAR(50)
 )
 BEGIN
-    DECLARE EXIT HANDLER FOR SQLEXCEPTION
-    BEGIN
-        ROLLBACK;
-    END;
-
-    START TRANSACTION;
-
-    INSERT INTO employee (empid, cid, fname, lname, isactive, phoneno, pin)
-    VALUES (p_EmpID, p_CID, p_FName, p_LName, p_IsActive, p_PhoneNo, p_Pin);
-
-    COMMIT;
+    INSERT INTO ContactUS (
+        RequestID, 
+        CID, 
+        RequestorEmail, 
+        ConcernsQuestions, 
+        PhoneNumber, 
+        Status
+    ) VALUES (
+        p_requestId, 
+        p_CID, 
+        p_requestorEmail, 
+        p_concerns_questions, 
+        p_phoneNumber, 
+        p_status
+    );
 END //
 
-DELIMITER ;
-CALL CreateEmployee('68f9bafc-2390-11ef-82b6-02d83582ee21', '68f9bafc-2390-11ef-82b6-02d83582ee21', 'John', 'Doe', TRUE, '555-1234', 1234);
-select * from employee;
+DELIMITER :
 
 DELIMITER //
 
-CREATE PROCEDURE GetEmployee(
-    IN p_EmpID CHAR(36)
+CREATE PROCEDURE spGetContact(
+    IN p_requestId CHAR(36)
 )
 BEGIN
-    SELECT * FROM employee WHERE empid = p_EmpID;
+    SELECT 
+        *
+    FROM 
+        ContactUS
+    WHERE 
+        RequestID = p_requestId;
 END //
 
-DELIMITER ;
-CALL GetEmployee('68f9bafc-2390-11ef-82b6-02d83582ee21');
+DELIMITER :
 
 DELIMITER //
 
-CREATE PROCEDURE UpdateEmployee(
-    IN p_EmpID CHAR(36),
+CREATE PROCEDURE spDeleteContact(
+    IN p_requestId CHAR(36)
+)
+BEGIN
+    DELETE FROM ContactUS
+    WHERE RequestID = p_requestId;
+END //
+
+DELIMITER :
+
+DELIMITER //
+
+CREATE PROCEDURE spUpdateContact(
+    IN p_requestId CHAR(36),
     IN p_CID CHAR(36),
-    IN p_FName VARCHAR(255),
-    IN p_LName VARCHAR(255),
-    IN p_IsActive BOOLEAN,
-    IN p_PhoneNo VARCHAR(255),
-    IN p_Pin INT
+    IN p_requestorEmail VARCHAR(255),
+    IN p_concerns_questions TEXT,
+    IN p_phoneNumber VARCHAR(20),
+    IN p_status VARCHAR(50)
 )
 BEGIN
-    DECLARE EXIT HANDLER FOR SQLEXCEPTION
-    BEGIN
-        ROLLBACK;
-    END;
-
-    START TRANSACTION;
-
-    UPDATE employee
-    SET cid = p_CID,
-        fname = p_FName,
-        lname = p_LName,
-        isactive = p_IsActive,
-        phoneno = p_PhoneNo,
-        pin = p_Pin
-    WHERE empid = p_EmpID;
-
-    COMMIT;
+    UPDATE ContactUS
+    SET 
+        CID = p_CID,
+        RequestorEmail = p_requestorEmail, 
+        ConcernsQuestions = p_concerns_questions, 
+        PhoneNumber = p_phoneNumber, 
+        Status = p_status
+    WHERE 
+        RequestID = p_requestId;
 END //
 
-DELIMITER ;
-CALL UpdateEmployee('68f9bafc-2390-11ef-82b6-02d83582ee21', '68f9bafc-2390-11ef-82b6-02d83582ee21', 'John', 'Jackes', TRUE, '555-1234', 1234);
+DELIMITER :
 
+-- Store Procedures for ReportRecipient Table-- 
 
 DELIMITER //
 
-CREATE PROCEDURE DeleteEmployee(
-    IN p_EmpID CHAR(36)
-)
-BEGIN
-    DECLARE EXIT HANDLER FOR SQLEXCEPTION
-    BEGIN
-        ROLLBACK;
-    END;
-
-    START TRANSACTION;
-
-    DELETE FROM employee WHERE empid = p_EmpID;
-
-    COMMIT;
-END //
-
-DELIMITER ;
-CALL DeleteEmployee('68f9bafc-2390-11ef-82b6-02d83582ee21');
-
-
-
-CREATE TABLE `reportRecipients` (
-  `checkinid` char(36) PRIMARY KEY,
-  `cid` char(36),
-  `emailid` varchar(255),
-  `exec` boolean
-);
-
-
-DELIMITER //
-
-CREATE PROCEDURE CreateReportRecipient(
+CREATE PROCEDURE spCreateReportRecipient(
     IN p_CheckinID CHAR(36),
     IN p_CID CHAR(36),
     IN p_EmailID VARCHAR(255),
@@ -525,30 +599,29 @@ BEGIN
 
     START TRANSACTION;
 
-    INSERT INTO reportRecipients (checkinid, cid, emailid, exec)
+    INSERT INTO ReportRecipients (CheckinID, CID, EmailId, Exec)
     VALUES (p_CheckinID, p_CID, p_EmailID, p_Exec);
 
     COMMIT;
 END //
 
 DELIMITER ;
-CALL CreateReportRecipient('ba6ab250-23aa-11ef-82b6-02d83582ee22', '68f9bafc-2390-11ef-82b6-02d83582ee22', 'email@example.com', True);
-select * from reportRecipients;
+
 DELIMITER //
 
-CREATE PROCEDURE GetReportRecipient(
+CREATE PROCEDURE spGetReportRecipient(
     IN p_CheckinID CHAR(36)
 )
 BEGIN
-    SELECT * FROM reportRecipients WHERE checkinid = p_CheckinID;
+    SELECT * FROM ReportRecipients WHERE CheckinID = p_CheckinID;
 END //
 
 DELIMITER ;
-CALL GetReportRecipient('ba6ab250-23aa-11ef-82b6-02d83582ee22');
+
 
 DELIMITER //
 
-CREATE PROCEDURE UpdateReportRecipient(
+CREATE PROCEDURE spUpdateReportRecipient(
     IN p_CheckinID CHAR(36),
     IN p_CID CHAR(36),
     IN p_EmailID VARCHAR(255),
@@ -562,21 +635,20 @@ BEGIN
 
     START TRANSACTION;
 
-    UPDATE reportRecipients
-    SET cid = p_CID,
-        emailid = p_EmailID,
-        exec = p_Exec
-    WHERE checkinid = p_CheckinID;
+    UPDATE ReportRecipients
+    SET CID = p_CID,
+        EmailId = p_EmailID,
+        Exec = p_Exec
+    WHERE CheckinID = p_CheckinID;
 
     COMMIT;
 END //
 
 DELIMITER ;
-CALL UpdateReportRecipient('ba6ab250-23aa-11ef-82b6-02d83582ee22', '68f9bafc-2390-11ef-82b6-02d83582ee22', 'updated@example.com', FALSE);
 
 DELIMITER //
 
-CREATE PROCEDURE DeleteReportRecipient(
+CREATE PROCEDURE spDeleteReportRecipient(
     IN p_CheckinID CHAR(36)
 )
 BEGIN
@@ -587,24 +659,18 @@ BEGIN
 
     START TRANSACTION;
 
-    DELETE FROM reportRecipients WHERE checkinid = p_CheckinID;
+    DELETE FROM ReportRecipients WHERE CheckinID = p_CheckinID;
 
     COMMIT;
 END //
 
 DELIMITER ;
-CALL DeleteReportRecipient('ba6ab250-23aa-11ef-82b6-02d83582ee22');
 
-
-CREATE TABLE `checkInType` (
-  `typeid` char(36) PRIMARY KEY,
-  `cid` char(36),
-  `typenames` varchar(255)
-);
+-- Store Procedures for CheckinType Table-- 
 
 DELIMITER //
 
-CREATE PROCEDURE CreateCheckInType(
+CREATE PROCEDURE spCreateCheckInType(
     IN p_TypeID CHAR(36),
     IN p_CID CHAR(36),
     IN p_TypeNames VARCHAR(255)
@@ -617,7 +683,7 @@ BEGIN
 
     START TRANSACTION;
 
-    INSERT INTO checkInType (typeid, cid, typenames)
+    INSERT INTO CheckInType (TypeID, CID, TypeNames)
     VALUES (p_TypeID, p_CID, p_TypeNames);
 
     COMMIT;
@@ -627,18 +693,18 @@ DELIMITER ;
 
 DELIMITER //
 
-CREATE PROCEDURE ReadCheckInType(
+CREATE PROCEDURE spGetCheckInType(
     IN p_TypeID CHAR(36)
 )
 BEGIN
-    SELECT * FROM checkInType WHERE typeid = p_TypeID;
+    SELECT * FROM CheckInType WHERE TypeID = p_TypeID;
 END //
 
 DELIMITER ;
 
 DELIMITER //
 
-CREATE PROCEDURE UpdateCheckInType(
+CREATE PROCEDURE spUpdateCheckInType(
     IN p_TypeID CHAR(36),
     IN p_CID CHAR(36),
     IN p_TypeNames VARCHAR(255)
@@ -651,10 +717,10 @@ BEGIN
 
     START TRANSACTION;
 
-    UPDATE checkInType
-    SET cid = p_CID,
-        typenames = p_TypeNames
-    WHERE typeid = p_TypeID;
+    UPDATE CheckInType
+    SET CID = p_CID,
+        TypeNames = p_TypeNames
+    WHERE TypeID = p_TypeID;
 
     COMMIT;
 END //
@@ -663,7 +729,7 @@ DELIMITER ;
 
 DELIMITER //
 
-CREATE PROCEDURE DeleteCheckInType(
+CREATE PROCEDURE spDeleteCheckInType(
     IN p_TypeID CHAR(36)
 )
 BEGIN
@@ -674,22 +740,18 @@ BEGIN
 
     START TRANSACTION;
 
-    DELETE FROM checkInType WHERE typeid = p_TypeID;
+    DELETE FROM CheckInType WHERE TypeID = p_TypeID;
 
     COMMIT;
 END //
 
 DELIMITER ;
 
-
-CREATE TABLE `reportType` (
-  `reporttypeid` char(36) PRIMARY KEY,
-  `reporttypename` varchar(255)
-);
+-- Store Procedures for Report-type Table-- 
 
 DELIMITER //
 
-CREATE PROCEDURE CreateReportType(
+CREATE PROCEDURE spCreateReportType(
     IN p_ReportTypeID CHAR(36),
     IN p_ReportTypeName VARCHAR(255)
 )
@@ -701,7 +763,7 @@ BEGIN
 
     START TRANSACTION;
 
-    INSERT INTO reportType (reporttypeid, reporttypename)
+    INSERT INTO ReportType (ReportTypeID, ReportTypeName)
     VALUES (p_ReportTypeID, p_ReportTypeName);
 
     COMMIT;
@@ -711,18 +773,18 @@ DELIMITER ;
 
 DELIMITER //
 
-CREATE PROCEDURE GetReportType(
+CREATE PROCEDURE spGetReportType(
     IN p_ReportTypeID CHAR(36)
 )
 BEGIN
-    SELECT * FROM reportType WHERE reporttypeid = p_ReportTypeID;
+    SELECT * FROM ReportType WHERE ReportTypeID = p_ReportTypeID;
 END //
 
 DELIMITER ;
 
 DELIMITER //
 
-CREATE PROCEDURE UpdateReportType(
+CREATE PROCEDURE spUpdateReportType(
     IN p_ReportTypeID CHAR(36),
     IN p_ReportTypeName VARCHAR(255)
 )
@@ -734,9 +796,9 @@ BEGIN
 
     START TRANSACTION;
 
-    UPDATE reportType
-    SET reporttypename = p_ReportTypeName
-    WHERE reporttypeid = p_ReportTypeID;
+    UPDATE ReportType
+    SET ReportTypeName = p_ReportTypeName
+    WHERE ReportTypeID = p_ReportTypeID;
 
     COMMIT;
 END //
@@ -745,7 +807,7 @@ DELIMITER ;
 
 DELIMITER //
 
-CREATE PROCEDURE DeleteReportType(
+CREATE PROCEDURE spDeleteReportType(
     IN p_ReportTypeID CHAR(36)
 )
 BEGIN
@@ -756,7 +818,7 @@ BEGIN
 
     START TRANSACTION;
 
-    DELETE FROM reportType WHERE reporttypeid = p_ReportTypeID;
+    DELETE FROM ReportType WHERE ReportTypeID = p_ReportTypeID;
 
     COMMIT;
 END //
@@ -764,17 +826,11 @@ END //
 DELIMITER ;
 
 
-CREATE TABLE `companyReportType` (
-  `companyreporttypeid` char(36) PRIMARY KEY,
-  `cid` char(36),
-  `reporttypeid` char(36),
-  `isdailyreportactive` boolean
-);
-
+-- Store Procedures for Company Report-type Table-- 
 
 DELIMITER //
 
-CREATE PROCEDURE CreateCompanyReportType(
+CREATE PROCEDURE spCreateCompanyReportType(
     IN p_CompanyReportTypeID CHAR(36),
     IN p_CID CHAR(36),
     IN p_ReportTypeID CHAR(36),
@@ -788,7 +844,7 @@ BEGIN
 
     START TRANSACTION;
 
-    INSERT INTO companyReportType(companyreporttypeid, cid, reporttypeid, isdailyreportactive)
+    INSERT INTO CompanyReportType(CompanyReportTypeID, CID, ReportTypeID, IsDailyReportActive)
     VALUES (p_CompanyReportTypeID, p_CID, p_ReportTypeID, p_IsDailyReportActive);
 
     COMMIT;
@@ -799,11 +855,11 @@ DELIMITER ;
 
 DELIMITER //
 
-CREATE PROCEDURE GetCompanyReportType(
+CREATE PROCEDURE spGetCompanyReportType(
     IN p_CompanyReportTypeID CHAR(36)
 )
 BEGIN
-    SELECT * FROM companyReportType WHERE companyreporttypeid = p_CompanyReportTypeID;
+    SELECT * FROM CompanyReportType WHERE CompanyReportTypeID = p_CompanyReportTypeID;
 END //
 
 DELIMITER ;
@@ -811,7 +867,7 @@ DELIMITER ;
 
 DELIMITER //
 
-CREATE PROCEDURE UpdateCompanyReportType(
+CREATE PROCEDURE spUpdateCompanyReportType(
     IN p_CompanyReportTypeID CHAR(36),
     IN p_CID CHAR(36),
     IN p_ReportTypeID CHAR(36),
@@ -825,11 +881,11 @@ BEGIN
 
     START TRANSACTION;
 
-    UPDATE companyReportType
-    SET cid = p_CID,
-        reporttypeid = p_ReportTypeID,
-        isdailyreportactive = p_IsDailyReportActive
-    WHERE companyreporttypeid = p_CompanyReportTypeID;
+    UPDATE CompanyReportType
+    SET CID = p_CID,
+        ReportTypeID = p_ReportTypeID,
+        IsDailyReportActive = p_IsDailyReportActive
+    WHERE CompanyReportTypeID = p_CompanyReportTypeID;
 
     COMMIT;
 END //
@@ -839,7 +895,7 @@ DELIMITER ;
 
 DELIMITER //
 
-CREATE PROCEDURE DeleteCompanyReportType(
+CREATE PROCEDURE spDeleteCompanyReportType(
     IN p_CompanyReportTypeID CHAR(36)
 )
 BEGIN
@@ -850,31 +906,18 @@ BEGIN
 
     START TRANSACTION;
 
-    DELETE FROM companyReportType WHERE companyreporttypeid = p_CompanyReportTypeID;
+    DELETE FROM CompanyReportType WHERE CompanyReportTypeID = p_CompanyReportTypeID;
 
     COMMIT;
 END //
 
 DELIMITER ;
 
-
-CREATE TABLE `reportSchedule` (
-  `reportid` char(36),
-  `cid` char(36),
-  `reporttypeid` char(36),
-  `isdelivered` boolean,
-  `isactive` boolean,
-  `reporttimegenerated` datetime,
-  `reporttimesent` datetime,
-  `textreporttime` varchar(255),
-  `createdat` datetime,
-  `updatedat` datetime,
-  PRIMARY KEY (`reportid`, `cid`)
-);
+-- Store Procedures for Report Schedule Table-- 
 
 DELIMITER //
 
-CREATE PROCEDURE CreateReportSchedule(
+CREATE PROCEDURE spCreateReportSchedule(
     IN p_ReportID CHAR(36),
     IN p_CID CHAR(36),
     IN p_ReportTypeID CHAR(36),
@@ -894,7 +937,7 @@ BEGIN
 
     START TRANSACTION;
 
-    INSERT INTO reportSchedule (reportid, cid, reporttypeid, isdelivered, isactive, reporttimegenerated, reporttimesent, textreporttime, createdat, updatedat)
+    INSERT INTO ReportSchedule (ReportID, CID, ReportTypeID, IsDelivered, IsActive, ReportTimeGenerated, ReportTimeSent, TextReportTime, CreatedAt, UpdatedAt)
     VALUES (p_ReportID, p_CID, p_ReportTypeID, p_IsDelivered, p_IsActive, p_ReportTimeGenerated, p_ReportTimeSent, p_TextReportTime, p_CreatedAt, p_UpdatedAt);
 
     COMMIT;
@@ -905,12 +948,12 @@ DELIMITER ;
 
 DELIMITER //
 
-CREATE PROCEDURE GetReportSchedule(
+CREATE PROCEDURE spGetReportSchedule(
     IN p_ReportID CHAR(36),
     IN p_CID CHAR(36)
 )
 BEGIN
-    SELECT * FROM reportSchedule WHERE reportid = p_ReportID AND cid = p_CID;
+    SELECT * FROM ReportSchedule WHERE ReportID = p_ReportID AND CID = p_CID;
 END //
 
 DELIMITER ;
@@ -918,7 +961,7 @@ DELIMITER ;
 
 DELIMITER //
 
-CREATE PROCEDURE UpdateReportSchedule(
+CREATE PROCEDURE spUpdateReportSchedule(
     IN p_ReportID CHAR(36),
     IN p_CID CHAR(36),
     IN p_ReportTypeID CHAR(36),
@@ -938,16 +981,16 @@ BEGIN
 
     START TRANSACTION;
 
-    UPDATE reportSchedule
-    SET reporttypeid = p_ReportTypeID,
-        isdelivered = p_IsDelivered,
-        isactive = p_IsActive,
-        reporttimegenerated = p_ReportTimeGenerated,
-        reporttimesent = p_ReportTimeSent,
-        textreporttime = p_TextReportTime,
-        createdat = p_CreatedAt,
-        updatedat = p_UpdatedAt
-    WHERE reportid = p_ReportID AND cid = p_CID;
+    UPDATE ReportSchedule
+    SET ReportTypeID = p_ReportTypeID,
+        IsDelivered = p_IsDelivered,
+        IsActive = p_IsActive,
+        ReportTimeGenerated = p_ReportTimeGenerated,
+        ReportTimeSent = p_ReportTimeSent,
+        TextReportTime = p_TextReportTime,
+        CreatedAt = p_CreatedAt,
+        UpdatedAt = p_UpdatedAt
+    WHERE ReportID = p_ReportID AND CID = p_CID;
 
     COMMIT;
 END //
@@ -957,7 +1000,7 @@ DELIMITER ;
 
 DELIMITER //
 
-CREATE PROCEDURE DeleteReportSchedule(
+CREATE PROCEDURE spDeleteReportSchedule(
     IN p_ReportID CHAR(36),
     IN p_CID CHAR(36)
 )
@@ -969,7 +1012,7 @@ BEGIN
 
     START TRANSACTION;
 
-    DELETE FROM reportSchedule WHERE reportid = p_ReportID AND cid = p_CID;
+    DELETE FROM ReportSchedule WHERE ReportID = p_ReportID AND CID = p_CID;
 
     COMMIT;
 END //
@@ -977,21 +1020,108 @@ END //
 DELIMITER ;
 
 
-ALTER TABLE `customer` ADD FOREIGN KEY (`cid`) REFERENCES `company` (`cid`);
+-- Store Procedures for Transaction status Table-- 
 
-ALTER TABLE `login` ADD FOREIGN KEY (`cid`) REFERENCES `company` (`cid`);
+DELIMITER //
 
-ALTER TABLE `deviceSetting` ADD FOREIGN KEY (`cid`) REFERENCES `company` (`cid`);
+CREATE PROCEDURE spCreateTransactionStatus(
+    IN p_transactionid CHAR(36),
+    IN p_cid CHAR(36),
+    IN p_username VARCHAR(255),
+    IN p_creditcardencrypted VARCHAR(255),
+    IN p_expirydate DATE,
+    IN p_cvv INT,
+    IN p_transactionamount DECIMAL(10, 2),
+    IN p_transactionstarttime DATETIME,
+    IN p_transactionendtime DATETIME,
+    IN p_transactionstatus VARCHAR(255),
+    IN p_billingaddress VARCHAR(255)
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+    END;
 
-ALTER TABLE `employee` ADD FOREIGN KEY (`cid`) REFERENCES `company` (`cid`);
+    START TRANSACTION;
 
-ALTER TABLE `reportRecipients` ADD FOREIGN KEY (`cid`) REFERENCES `company` (`cid`);
+    INSERT INTO TransactionStatus (TransactionID, CID, UserName, CreditCardEncrypted, ExpiryDate, CVV, TransactionAmount, TransactionStartTime, TransactionEndTime, TransactionStatus, BillingAddress)
+    VALUES (p_transactionid, p_cid, p_username, p_creditcardencrypted, p_expirydate, p_cvv, p_transactionamount, p_transactionstarttime, p_transactionendtime, p_transactionstatus, p_billingaddress);
 
-ALTER TABLE `checkInType` ADD FOREIGN KEY (`cid`) REFERENCES `company` (`cid`);
+    COMMIT;
+END //
 
-ALTER TABLE `companyReportType` ADD FOREIGN KEY (`cid`) REFERENCES `company` (`cid`);
-ALTER TABLE `companyReportType` ADD FOREIGN KEY (`reporttypeid`) REFERENCES `reportType` (`reporttypeid`);
+DELIMITER :
 
-ALTER TABLE `reportSchedule` ADD FOREIGN KEY (`cid`) REFERENCES `company` (`cid`);
-ALTER TABLE `reportSchedule` ADD FOREIGN KEY (`reporttypeid`) REFERENCES `reportType` (`reporttypeid`);
+DELIMITER //
 
+CREATE PROCEDURE spGetTransactionStatus(
+    IN p_transactionid CHAR(36)
+)
+BEGIN
+    SELECT * FROM TransactionStatus WHERE TransactionID = p_transactionid;
+END //
+
+DELIMITER :
+
+DELIMITER //
+
+CREATE PROCEDURE spDeleteTransactionStatus(
+    IN p_transactionid CHAR(36)
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+    END;
+
+    START TRANSACTION;
+
+    DELETE FROM TransactionStatus WHERE TransactionID = p_transactionid;
+
+    COMMIT;
+END //
+
+DELIMITER :
+
+
+DELIMITER //
+
+CREATE PROCEDURE spUpdateTransactionStatus(
+    IN p_transactionid CHAR(36),
+    IN p_cid CHAR(36),
+    IN p_username VARCHAR(255),
+    IN p_creditcardencrypted VARCHAR(255),
+    IN p_expirydate DATE,
+    IN p_cvv INT,
+    IN p_transactionamount DECIMAL(10,2),
+    IN p_transactionstarttime DATETIME,
+    IN p_transactionendtime DATETIME,
+    IN p_transactionstatus VARCHAR(255),
+    IN p_billingaddress VARCHAR(255)
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+    END;
+
+    START TRANSACTION;
+
+    UPDATE TransactionStatus
+    SET CID = p_cid,
+        UserName = p_username,
+        CreditCardEncrypted = p_creditcardencrypted,
+        ExpiryDate = p_expirydate,
+        CVV = p_cvv,
+        TransactionAmount = p_transactionamount,
+        TransactionStartTime = p_transactionstarttime,
+        TransactionEndTime = p_transactionendtime,
+        TransactionStatus = p_TransactionStatus,
+        BillingAddress = p_billingaddress
+    WHERE TransactionID = p_transactionid;
+
+    COMMIT;
+END //
+
+DELIMITER //

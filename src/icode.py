@@ -12,7 +12,7 @@ app = FastAPI()
 # ]
 
 app.add_middleware(
-    CORSMiddleware, allow_origins=["*"], allow_credentials = True, allow_methods=["*"], allow_headers=["*"]
+    CORSMiddleware, allow_origins=["*", "http://localhost:5500"], allow_credentials = True, allow_methods=["*"], allow_headers=["*"]
 )
 
 def connect_to_database():
@@ -21,7 +21,7 @@ def connect_to_database():
             host="mydb.cxms2oikutcu.us-west-2.rds.amazonaws.com",
             user="admin",
             password="databasepass",
-            database="icodeTest",
+            database="icode",
             cursorclass=pymysql.cursors.DictCursor 
         )
         return connection
@@ -41,7 +41,7 @@ def get_all_companies():
 
     try:
         with connection.cursor() as cursor:
-            sql = 'CALL get_all_companies'
+            sql = 'CALL spGetAllCompanies'
             cursor.execute(sql)
             myresult = cursor.fetchall()
             return myresult
@@ -59,13 +59,34 @@ def get_company(company_id: str):
 
     try:
         with connection.cursor() as cursor:
-            sql = 'CALL get_company(%s)'
+            sql = 'CALL spGetCompany(%s)'
             cursor.execute(sql, (company_id,))
             myresult = cursor.fetchone()
             if myresult:
                 return myresult
             else:
                 return {"message": f"Company with ID '{company_id}' not found"}
+    except pymysql.MySQLError as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+@app.get("/company/getuser/{userName}")
+def get_company(userName: str):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as cursor:
+            sql = 'CALL spGetUser(%s)'
+            cursor.execute(sql, (userName,))
+            myresult = cursor.fetchone()
+            if myresult:
+                return myresult
+            else:
+                return {"message": "UserName not found"}
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
         return {"error": str(err)}
@@ -82,18 +103,26 @@ async def create_company(company: dict = Body(...)):
     try:
         with connection.cursor() as cursor:
             # Extract data from request body
-            cid = company.get("cid")
-            cname = company.get("cname")
-            clogo = company.get("clogo")  # Assuming clogo is a byte stream
-            caddress = company.get("caddress")
-            username = company.get("username")
-            password = company.get("password")
+            cid = company.get("CID")
+            cname = company.get("CName")
+            clogo = company.get("CLogo") 
+            caddress = company.get("CAddress")
+            username = company.get("UserName")
+            password = company.get("Password")
 
-            sql = "CALL CreateCompany(%s, %s, %s, %s, %s, %s)"
-            cursor.execute(sql, (cid, cname, clogo, caddress, username, password))
-            connection.commit()  # Commit changes
+            # Check if username is already exists
+            check_sql = "SELECT COUNT(*) AS count FROM Company WHERE UserName = %s"
+            cursor.execute(check_sql, (username,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                return {"error": "UserName already exists"}
 
-            return {"message": "Company created successfully"}
+            else:
+                sql = "CALL spCreateCompany(%s, %s, %s, %s, %s, %s)"
+                cursor.execute(sql, (cid, cname, clogo, caddress, username, password))
+                connection.commit()
+
+                return {"message": "Company created successfully", "CID": cid, "UserName": username}
 
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
@@ -110,11 +139,20 @@ async def delete_company(company_id: str):
 
     try:
         with connection.cursor() as cursor:
-            sql = "CALL delete_company(%s)"
-            cursor.execute(sql, (company_id,))
-            connection.commit()  # Commit changes
 
-            return {"message": f"Company with ID '{company_id}' deleted successfully"}
+            # Check if username is already exists
+            check_sql = "SELECT COUNT(*) AS count FROM Company WHERE CID = %s"
+            cursor.execute(check_sql, (company_id,))
+            result = cursor.fetchone()
+
+            if result['count'] > 0:
+                sql = "CALL spDeleteCompany(%s)"
+                cursor.execute(sql, (company_id,))
+                connection.commit()  # Commit changes
+
+                return {"message": f"Company with ID '{company_id}' deleted successfully"}
+            else:
+                return {"error": "Company id not found"}
 
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
@@ -130,21 +168,29 @@ async def update_company(company_id: str, company: dict = Body(...)):
         return {"error": "Failed to connect to database"}
 
     try:
-        with connection.cursor() as mycursor:
-            # Extract data from request body and path parameter
-            cid = company_id
-            cname = company.get("cname")
-            clogo = company.get("clogo")  # Assuming clogo is a byte stream
-            caddress = company.get("caddress")
-            username = company.get("username")
-            password = company.get("password")
+        with connection.cursor() as cursor:
+           # Extract data from request body
+            cid = company.get("CID")
+            cname = company.get("CName")
+            clogo = company.get("CLogo") 
+            caddress = company.get("CAddress")
+            username = company.get("UserName")
+            password = company.get("Password")
+            
+            # Check if CompanyID is already exists
+            check_sql = "SELECT COUNT(*) AS count FROM Company WHERE UserName = %s"
+            cursor.execute(check_sql, (username,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                return {"error": "UserName already exists"}
 
-            sql = "CALL update_company(%s, %s, %s, %s, %s, %s)"
-            mycursor.execute(sql, ( cname, clogo, caddress, username, password, cid))
+            else:
 
-            connection.commit()
+                sql = "CALL spUpdateCompany(%s, %s, %s, %s, %s, %s)"
+                cursor.execute(sql, (cid, cname, clogo, caddress, username, password))
+                connection.commit()
 
-            return {"message": f"Company with ID '{company_id}' updated successfully"}
+                return {"message": "Company updated successfully", "CID": cid, "UserName": username}
 
     except pymysql.Error as err:
         print(f"Error calling stored procedure: {err}")
@@ -161,13 +207,13 @@ async def get_customer_by_id(customer_id: str):
 
     try:
         with connection.cursor() as mycursor:
-            sql = "CALL GetCustomer(%s)" 
+            sql = "CALL spGetCustomer(%s)" 
             mycursor.execute(sql, (customer_id,))
             customer = mycursor.fetchone()
             if customer:
                 return customer
             else:
-                return {"message": f"Customer with ID '{customer_id}' not found"}
+                return {"error": "Customer id not found"}
 
     except pymysql.connector.Error as err:
         print(f"Error calling stored procedure: {err}")
@@ -183,14 +229,30 @@ async def create_customer(customer = Body(...)):
         return {"error": "Failed to connect to database"}
 
     try:
-        with connection.cursor() as mycursor:
-            # Extract data from request body (assuming it matches stored procedure parameters)
+        with connection.cursor() as cursor:
+            
+            customer_id = customer.get("CustomerID")
+            cid = customer.get("CID")
+            fname = customer.get("FName")
+            lname = customer.get("LName")
+            address = customer.get("Address")
+            phone_number = customer.get("PhoneNumber")
+            email = customer.get("Email")
+            is_active = customer.get("IsActive")
+            
+            check_sql = "SELECT COUNT(*) AS count FROM Customer WHERE CustomerID = %s"
+            cursor.execute(check_sql, (customer_id))
+            result = cursor.fetchone()
 
-            sql = "CALL CreateCustomer(%(customerid)s, %(cid)s, %(fname)s, %(lname)s, %(address)s, %(phonenumber)s, %(centername)s, %(email)s, %(isactive)s)"
-            mycursor.execute(sql, customer)
-            connection.commit()
+            if result['count'] > 0:
+                return {"error": "Customer id already exists"}
 
-            return {"message": "Customer created successfully"}
+            else:
+                sql = "CALL spCreateCustomer(%s, %s, %s, %s, %s, %s, %s, %s)"
+                cursor.execute(sql, (customer_id, cid, fname, lname, address, phone_number, email, is_active))
+                connection.commit()
+
+                return {"message": "Customer created successfully", "CustomerID": customer_id}
 
     except pymysql.connector.Error as err:
         print(f"Error calling stored procedure: {err}")
@@ -206,12 +268,19 @@ async def delete_customer(customer_id: str):
         return {"error": "Failed to connect to database"}
 
     try:
-        with connection.cursor() as mycursor:
-            sql = "CALL DeleteCustomer(%s)"
-            mycursor.execute(sql, (customer_id,))
-            connection.commit()
+        with connection.cursor() as cursor:
+            check_sql = "SELECT COUNT(*) AS count FROM Customer WHERE CustomerID = %s"
+            cursor.execute(check_sql, (customer_id,))
+            result = cursor.fetchone()
+            
+            if result['count'] > 0:
+                sql = "CALL spDeleteCustomer(%s)"
+                cursor.execute(sql, (customer_id,))
+                connection.commit()
 
-            return {"message": f"Customer with ID '{customer_id}' deleted successfully"}
+                return {"message": f"Customer with ID '{customer_id}' deleted successfully"}
+            else:
+                return {"error": "Customer id not found", "CustomerID": customer_id}                
 
     except pymysql.connector.Error as err:
         print(f"Error calling stored procedure: {err}")
@@ -227,111 +296,20 @@ async def update_customer(customer_id: str, customer = Body(...)):
         return {"error": "Failed to connect to database"}
 
     try:
-        with connection.cursor() as mycursor:
-
-            sql = "CALL UpdateCustomer(%(customerid)s, %(cid)s, %(fname)s, %(lname)s, %(address)s, %(phonenumber)s, %(centername)s, %(email)s, %(isactive)s)"
-            mycursor.execute(sql, customer)
-            connection.commit()  # Commit changes
-
-            return {"message": f"Customer with ID '{customer_id}' updated successfully"}
+        with connection.cursor() as cursor:
+            check_sql = "SELECT COUNT(*) AS count FROM Customer WHERE CustomerID = %s"
+            cursor.execute(check_sql, (customer_id,))
+            result = cursor.fetchone()
+            
+            if result['count'] > 0:
+                sql = "CALL spUpdateCustomer(%(CustomerID)s, %(CID)s, %(FName)s, %(LName)s, %(Address)s, %(PhoneNumber)s, %(Email)s, %(IsActive)s)"
+                cursor.execute(sql, customer)
+                connection.commit()  # Commit changes
+                return {"message": f"Customer with ID '{customer_id}' updated successfully"}
+            else:
+                return {"error": "Customer id not found", "CustomerID": customer_id} 
 
     except pymysql.connector.Error as err:
-        print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)}
-    finally:
-        connection.close()
-
-@app.get("/login/get/{username}")
-async def get_login(username: str):
-    connection = connect_to_database()
-    if not connection:
-        return {"error": "Failed to connect to database"}
-
-    try:
-        with connection.cursor() as mycursor:
-            sql = "CALL GetLogin(%s);"
-            mycursor.execute(sql, (username,)) 
-            myresult = mycursor.fetchall()
-            if myresult:
-                return myresult
-            else:
-                return {"message": f"Username '{username}' not found"}
-
-    except pymysql.Error as err:
-        print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)}
-    finally:
-        connection.close()
-
-
-# POST request to create a employee
-@app.post("/login/create")
-async def create_login(login: dict = Body(...)):
-    connection = connect_to_database()
-    if not connection:
-        return {"error": "Failed to connect to database"}
-
-    try:
-        with connection.cursor() as mycursor:
-            # Extract data from request body
-            username = login.get("username")
-            cid = login.get("cid")
-            password = login.get("password")  
-
-            sql = "CALL CreateLogin(%s, %s, %s);"
-            mycursor.execute(sql, (username, cid, password))
-            connection.commit()  
-            return {"message": "Login created successfully"}
-
-    except pymysql.Error as err:
-        print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)}
-    finally:
-        connection.close()
-
-# DELETE request to delete a company
-@app.delete("/login/delete/{username}")
-async def delete_login(username: str):
-    connection = connect_to_database()
-    if not connection:
-        return {"error": "Failed to connect to database"}
-
-    try:
-        with connection.cursor() as mycursor:
-            sql = "CALL DeleteLogin(%s)"
-
-            mycursor.execute(sql, (username,))
-            connection.commit()
-
-            return {"message": f"login with ID '{username}' deleted successfully"}
-
-    except pymysql.Error as err:
-        print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)}
-    finally:
-        connection.close()
-
-# PUT request to update a employee
-@app.put("/login/update/{username}")
-async def update_login(username: str, login: dict = Body(...)):
-    connection = connect_to_database()
-    if not connection:
-        return {"error": "Failed to connect to database"}
-
-    try:
-        with connection.cursor() as mycursor:
-            # Extract data from request body and path parameter
-            username = login.get("username")
-            cid = login.get("cid")
-            password = login.get("password")  
-
-            sql = "CALL UpdateLogin(%s, %s, %s)"
-            mycursor.execute(sql, (username, cid, password))
-            connection.commit()
-
-            return {"message": f"Login with ID '{username}' updated successfully"}
-
-    except pymysql.Error as err:
         print(f"Error calling stored procedure: {err}")
         return {"error": str(err)}
     finally:
@@ -345,7 +323,7 @@ async def get_device_setting(deviceId: str,companyId : str):
 
     try:
         with connection.cursor() as mycursor:
-            sql = "CALL GetDeviceSetting(%s, %s);"
+            sql = "CALL spGetDeviceSetting(%s, %s);"
             mycursor.execute(sql, (deviceId,companyId,))  # Enclose emp_id in a tuple
             myresult = mycursor.fetchall()
             if myresult:
@@ -368,20 +346,26 @@ async def create_device_setting(deviceSetting: dict = Body(...)):
         return {"error": "Failed to connect to database"}
 
     try:
-        with connection.cursor() as mycursor:
-            # Extract data from request body
-            deviceid = deviceSetting.get("deviceid")
-            cid = deviceSetting.get("cid")
-            devicename = deviceSetting.get("devicename")  # Assuming clogo is a byte stream
-            regid = deviceSetting.get("regid")
-            isactive =  bool(deviceSetting.get("isactive").lower())
+        with connection.cursor() as cursor:
+            
+            deviceid = deviceSetting.get("DeviceID")
+            cid = deviceSetting.get("CID")
+            devicename = deviceSetting.get("DeviceName") 
+            regid = deviceSetting.get("RegID")
+            isactive =  deviceSetting.get("IsActive")
 
-            # Call the stored procedure
-            sql = "CALL CreateDeviceSetting(%s, %s, %s, %s, %s);"
-            mycursor.execute(sql, (deviceid, cid, devicename, regid, isactive))
-            connection.commit()  # Commit changes
+            # Check if device id is already exists
+            check_sql = "SELECT COUNT(*) AS count FROM DeviceSetting WHERE DeviceID = %s"
+            cursor.execute(check_sql, (deviceid,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                return {"error": "DeviceID already exists"}
 
-            return {"message": "deviceSetting created successfully"}
+            else:
+                sql = "CALL spCreateDeviceSetting(%s, %s, %s, %s, %s);"
+                cursor.execute(sql, (deviceid, cid, devicename, regid, isactive))
+                connection.commit()  
+                return {"message": "deviceSetting created successfully", "DeviceID": deviceid}
 
     except pymysql.Error as err:
         print(f"Error calling stored procedure: {err}")
@@ -397,13 +381,19 @@ async def delete_device_setting(deviceId: str,companyId: str):
         return {"error": "Failed to connect to database"}
 
     try:
-        with connection.cursor() as mycursor:
-            sql = "CALL DeleteDeviceSetting(%s,%s)"
+        with connection.cursor() as cursor:
+            # Check if device id is already exists
+            check_sql = "SELECT COUNT(*) AS count FROM DeviceSetting WHERE DeviceID = %s"
+            cursor.execute(check_sql, (deviceId,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                sql = "CALL spDeleteDeviceSetting(%s,%s)"
+                cursor.execute(sql, (deviceId,companyId,))
+                connection.commit()
 
-            mycursor.execute(sql, (deviceId,companyId,))
-            connection.commit()
-
-            return {"message": f"deviceSetting with ID '{deviceId}' deleted successfully"}
+                return {"message": f"deviceSetting with ID '{deviceId}' deleted successfully"}
+            else:
+                return {"error": "DeviceID not found", "DeviceID": deviceId, "CompanyID": companyId}
 
     except pymysql.Error as err:
         print(f"Error calling stored procedure: {err}")
@@ -419,19 +409,23 @@ async def update_device_setting(deviceId: str, companyId: str, deviceSetting: di
         return {"error": "Failed to connect to database"}
 
     try:
-        with connection.cursor() as mycursor:
-            # Extract data from request body and path parameter
-            deviceid = deviceSetting.get("deviceid")
-            cid = deviceSetting.get("cid")
-            devicename = deviceSetting.get("devicename") 
-            regid = deviceSetting.get("regid")
-            isactive =  bool(deviceSetting.get("isactive").lower())
+        with connection.cursor() as cursor:
+            devicename = deviceSetting.get("DeviceName") 
+            regid = deviceSetting.get("RegID")
+            isactive =  deviceSetting.get("IsActive")
 
-            sql = "CALL UpdateDeviceSetting(%s, %s, %s, %s, %s)"
-            mycursor.execute(sql, (deviceid, cid, devicename, regid, isactive))
-            connection.commit()
+            # Check if device id is already exists
+            check_sql = "SELECT COUNT(*) AS count FROM DeviceSetting WHERE DeviceID = %s"
+            cursor.execute(check_sql, (deviceId,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                sql = "CALL spUpdateDeviceSetting(%s, %s, %s, %s, %s)"
+                cursor.execute(sql, (deviceId, companyId, devicename, regid, isactive))
+                connection.commit()
 
-            return {"message": f"deviceSetting with ID '{deviceId}' updated successfully"}
+                return {"message": f"deviceSetting with ID '{deviceId}' updated successfully"}
+            else:
+               return {"error": "DeviceID not found", "DeviceID": deviceId, "CompanyID": companyId}
 
     except pymysql.Error as err:
         print(f"Error calling stored procedure: {err}")
@@ -448,7 +442,7 @@ async def get_employee(emp_id: str):
 
     try:
         with connection.cursor() as mycursor:
-            sql = "CALL GetEmployee(%s);"
+            sql = "CALL spGetEmployee(%s);"
             mycursor.execute(sql, (emp_id,))  # Enclose emp_id in a tuple
             employee = mycursor.fetchall()
             if employee:
@@ -471,22 +465,29 @@ async def create_employee(employee: dict = Body(...)):
         return {"error": "Failed to connect to database"}
 
     try:
-        with connection.cursor() as mycursor:
+        with connection.cursor() as cursor:
             # Extract data from request body
-            empid = employee.get("empid")
-            cid = employee.get("cid")
-            fname = employee.get("fname")  # Assuming clogo is a byte stream
-            lname = employee.get("lname")
-            isactive =  bool(employee.get("isactive").lower())
-            phoneno = employee.get("phoneno")
-            pin = employee.get("pin")
+            empid = employee.get("EmpID")
+            cid = employee.get("CID")
+            fname = employee.get("FName")
+            lname = employee.get("LName")
+            isactive =  employee.get("IsActive")
+            phoneno = employee.get("PhoneNumber")
+            pin = employee.get("Pin")
+            
+            # Check if username is already exists
+            check_sql = "SELECT COUNT(*) AS count FROM Employee WHERE EmpID = %s"
+            cursor.execute(check_sql, (empid,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                return {"error": "Employee already exists"}
+            else:
+                
+                sql = "CALL spCreateEmployee(%s, %s, %s, %s, %s, %s, %s);"
+                cursor.execute(sql, (empid, cid, fname, lname, isactive, phoneno,pin))
+                connection.commit()
 
-            # Call the stored procedure
-            sql = "CALL CreateEmployee(%s, %s, %s, %s, %s, %s, %s);"
-            mycursor.execute(sql, (empid, cid, fname, lname, isactive, phoneno,pin))
-            connection.commit()  # Commit changes
-
-            return {"message": "Company created successfully"}
+                return {"message": "Employee created successfully", "EmpID": empid}
 
     except pymysql.Error as err:
         print(f"Error calling stored procedure: {err}")
@@ -502,13 +503,20 @@ async def delete_employee(emp_id: str):
         return {"error": "Failed to connect to database"}
 
     try:
-        with connection.cursor() as mycursor:
-            sql = "CALL DeleteEmployee(%s)"
+        with connection.cursor() as cursor:
 
-            mycursor.execute(sql, (emp_id,))
-            connection.commit()
+            # Check if Employee id is already exists
+            check_sql = "SELECT COUNT(*) AS count FROM Employee WHERE EmpID = %s"
+            cursor.execute(check_sql, (emp_id,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                sql = "CALL spDeleteEmployee(%s)"
+                cursor.execute(sql, (emp_id,))
+                connection.commit()
 
-            return {"message": f"employee with ID '{emp_id}' deleted successfully"}
+                return {"message": f"Employee with ID '{emp_id}' deleted successfully"}
+            else:
+                return {"error": "Employee ID not found"}
 
     except pymysql.Error as err:
         print(f"Error calling stored procedure: {err}")
@@ -524,21 +532,26 @@ async def update_employee(emp_id: str, employee: dict = Body(...)):
         return {"error": "Failed to connect to database"}
 
     try:
-        with connection.cursor() as mycursor:
-            # Extract data from request body and path parameter
-            empid = employee.get("empid")
-            cid = employee.get("cid")
-            fname = employee.get("fname")  # Assuming clogo is a byte stream
-            lname = employee.get("lname")
-            isactive =  bool(employee.get("isactive").lower())
-            phoneno = employee.get("phoneno")
-            pin = employee.get("pin")
+        with connection.cursor() as cursor:
+            cid = employee.get("CID")
+            fname = employee.get("FName")
+            lname = employee.get("LName")
+            isactive =  employee.get("IsActive")
+            phoneno = employee.get("PhoneNumber")
+            pin = employee.get("Pin")
+            
+            # Check if Employee id is already exists
+            check_sql = "SELECT COUNT(*) AS count FROM Employee WHERE EmpID = %s"
+            cursor.execute(check_sql, (emp_id,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                sql = "CALL spUpdateEmployee(%s, %s, %s, %s, %s, %s, %s)"
+                cursor.execute(sql, (emp_id, cid, fname, lname, isactive, phoneno,pin))
+                connection.commit()
 
-            sql = "CALL UpdateEmployee(%s, %s, %s, %s, %s, %s, %s)"
-            mycursor.execute(sql, (empid, cid, fname, lname, isactive, phoneno,pin))
-            connection.commit()
-
-            return {"message": f"Company with ID '{emp_id}' updated successfully"}
+                return {"message": f"Company with ID '{emp_id}' updated successfully"}
+            else:
+                return {"error": "Employee ID not found"}
 
     except pymysql.Error as err:
         print(f"Error calling stored procedure: {err}")
@@ -546,6 +559,142 @@ async def update_employee(emp_id: str, employee: dict = Body(...)):
     finally:
         connection.close()
 
+@app.post("/contact-us/create")
+async def create_contact(contact: dict = Body(...)):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as cursor:
+            # Extract data from request body
+            request_id = contact.get("RequestID")
+            cid = contact.get("CID")
+            requestor_email = contact.get("RequestorEmail")
+            concerns_questions = contact.get("ConcernsQuestions")
+            phone_number = contact.get("PhoneNumber")
+            status = contact.get("Status")
+
+            # Check if request id is already exists
+            check_sql = "SELECT COUNT(*) AS count FROM ContactUS WHERE RequestID = %s"
+            cursor.execute(check_sql, (request_id,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                return {"error": "Request ID already exists" , "ReportID": request_id}
+            else:
+                sql = """
+                    CALL spCreateContact(
+                        %s, %s, %s, %s, %s, %s
+                    );
+                """
+                cursor.execute(sql, (
+                    request_id, cid, requestor_email,
+                    concerns_questions, phone_number, status
+                ))
+                connection.commit()
+
+                return {"message": "Contact created successfully"}
+
+    except pymysql.Error as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+# Endpoint to get a contact
+@app.get("/contact-us/get/{request_id}")
+async def get_contact(request_id: str):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as cursor:
+            sql = "CALL spGetContact(%s);"
+            cursor.execute(sql, (request_id,))
+            contact = cursor.fetchall()
+            if contact:
+                return contact
+            else:
+                return {"error": "Request id not found", "RequestID": request_id}
+            
+    except pymysql.Error as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+# Endpoint to update a contact
+@app.put("/contact-us/update/{request_id}")
+async def update_contact(request_id : str, contact: dict = Body(...)):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as cursor:
+            
+            cid = contact.get("CID")
+            requestor_email = contact.get("RequestorEmail")
+            concerns_questions = contact.get("ConcernsQuestions")
+            phone_number = contact.get("PhoneNumber")
+            status = contact.get("Status")
+
+            # Check if request id is already exists
+            check_sql = "SELECT COUNT(*) AS count FROM ContactUS WHERE RequestID = %s"
+            cursor.execute(check_sql, (request_id,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                sql = """
+                    CALL spUpdateContact(
+                        %s, %s, %s, %s, %s, %s
+                    );
+                """
+                cursor.execute(sql, (
+                    request_id, cid, requestor_email,
+                    concerns_questions, phone_number, status
+                ))
+                connection.commit()  # Commit changes
+
+                return {"message": "Contact updated successfully"}
+            
+            else:
+                return {"error": "Request ID not found" , "ReportID": request_id}
+           
+
+    except pymysql.Error as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+# Endpoint to delete a contact
+@app.delete("/contact-us/delete/{request_id}")
+async def delete_contact(request_id: str):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as cursor:
+            # Check if request id is already exists
+            check_sql = "SELECT COUNT(*) AS count FROM ContactUS WHERE RequestID = %s"
+            cursor.execute(check_sql, (request_id,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                sql = "CALL spDeleteContact(%s);"
+                cursor.execute(sql, (request_id,))
+                connection.commit()  # Commit changes
+
+                return {"message": "Contact deleted successfully"}
+            else:
+                return {"error": "Request ID not found" , "ReportID": request_id}  
+
+    except pymysql.Error as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
 
 @app.post("/report-recipient/create")
 async def create_report_recipient(report_recipient: dict = Body(...)):
@@ -555,17 +704,22 @@ async def create_report_recipient(report_recipient: dict = Body(...)):
 
     try:
         with connection.cursor() as cursor:
-            # Extract data from request body
-            checkin_id = report_recipient.get("checkinid")
-            cid = report_recipient.get("cid")
-            email_id = report_recipient.get("emailid")
-            exec_flag = report_recipient.get("exec")
+            checkin_id = report_recipient.get("CheckinID")
+            cid = report_recipient.get("CID")
+            email_id = report_recipient.get("EmailId")
+            exec_flag = report_recipient.get("Exec")
 
-            sql = "CALL CreateReportRecipient(%s, %s, %s, %s)"
-            cursor.execute(sql, (checkin_id, cid, email_id, exec_flag))
-            connection.commit()
+            check_sql = "SELECT COUNT(*) AS count FROM ReportRecipients WHERE CheckinID = %s"
+            cursor.execute(check_sql, (checkin_id,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                return {"error": "Check-in id already exists", "CheckinID": checkin_id}
+            else:
+                sql = "CALL spCreateReportRecipient(%s, %s, %s, %s)"
+                cursor.execute(sql, (checkin_id, cid, email_id, exec_flag))
+                connection.commit()
 
-            return {"message": "Report recipient created successfully"}
+                return {"message": "Report recipient created successfully"}
 
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
@@ -580,7 +734,7 @@ def get_report_recipient(checkin_id: str):
         return {"error": "Failed to connect to database"}
     try:
         with connection.cursor() as cursor:
-            sql = 'CALL GetReportRecipient(%s)'
+            sql = 'CALL spGetReportRecipient(%s)'
             cursor.execute(sql, (checkin_id,))
             myresult = cursor.fetchone()
             if myresult:
@@ -601,17 +755,23 @@ def update_report_recipient(checkin_id: str, report_recipient: dict = Body(...))
 
     try:
         with connection.cursor() as cursor:
-            # Extract data from request body
-            checkin_id = report_recipient.get("checkinid")
-            cid = report_recipient.get("cid")
-            email_id = report_recipient.get("emailid")
-            exec_flag = report_recipient.get("exec")
+            cid = report_recipient.get("CID")
+            email_id = report_recipient.get("EmailId")
+            exec_flag = report_recipient.get("Exec")
 
-            sql = 'CALL UpdateReportRecipient(%s, %s, %s, %s)'
-            cursor.execute(sql, (checkin_id, cid, email_id, exec_flag))
-            connection.commit()  # Commit changes
+            check_sql = "SELECT COUNT(*) AS count FROM ReportRecipients WHERE CheckinID = %s"
+            cursor.execute(check_sql, (checkin_id,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
 
-            return {"message": "Report recipient updated successfully"}
+                sql = 'CALL spUpdateReportRecipient(%s, %s, %s, %s)'
+                cursor.execute(sql, (checkin_id, cid, email_id, exec_flag))
+                connection.commit() 
+
+                return {"message": "Report recipient updated successfully"}
+            else:
+                return {"error": "Check-in id not found", "CheckinID": checkin_id}
+            
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
         return {"error": str(err)}
@@ -626,17 +786,22 @@ def delete_report_recipient(checkin_id: str):
 
     try:
         with connection.cursor() as cursor:
-            sql = 'CALL DeleteReportRecipient(%s)'
-            cursor.execute(sql, (checkin_id,))
-            connection.commit()  # Commit changes
+            check_sql = "SELECT COUNT(*) AS count FROM ReportRecipients WHERE CheckinID = %s"
+            cursor.execute(check_sql, (checkin_id,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                sql = 'CALL spDeleteReportRecipient(%s)'
+                cursor.execute(sql, (checkin_id,))
+                connection.commit()  # Commit changes
 
-            return {"message": f"Report recipient with checkin ID '{checkin_id}' deleted successfully"}
+                return {"message": f"Report recipient with checkin ID '{checkin_id}' deleted successfully"}
+            else:
+                return {"error": "Check-in id not found", "CheckinID": checkin_id}
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
         return {"error": str(err)}
     finally:
         connection.close()
-
 
 @app.post("/checkin-type/create")
 async def create_checkin_type(checkin_type: dict = Body(...)):
@@ -646,16 +811,22 @@ async def create_checkin_type(checkin_type: dict = Body(...)):
 
     try:
         with connection.cursor() as cursor:
-            # Extract data from request body
-            type_id = checkin_type.get("typeid")
-            cid = checkin_type.get("cid")
-            type_names = checkin_type.get("typenames")
+            
+            type_id = checkin_type.get("TypeID")
+            cid = checkin_type.get("CID")
+            type_names = checkin_type.get("TypeNames")
 
-            sql = "CALL CreateCheckInType(%s, %s, %s)"
-            cursor.execute(sql, (type_id, cid, type_names))
-            connection.commit()
+            check_sql = "SELECT COUNT(*) AS count FROM CheckInType WHERE TypeID = %s"
+            cursor.execute(check_sql, (type_id,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                return {"error": "Check-in Type Id already exists", "TypeID": type_id}
+            else:
+                sql = "CALL spCreateCheckInType(%s, %s, %s)"
+                cursor.execute(sql, (type_id, cid, type_names))
+                connection.commit()
 
-            return {"message": "Check-in type created successfully"}
+                return {"message": "Check-in type created successfully"}
 
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
@@ -670,7 +841,7 @@ def get_checkin_type(type_id: str):
         return {"error": "Failed to connect to database"}
     try:
         with connection.cursor() as cursor:
-            sql = 'CALL ReadCheckInType(%s)'
+            sql = 'CALL spGetCheckInType(%s)'
             cursor.execute(sql, (type_id,))
             myresult = cursor.fetchone()
             if myresult:
@@ -691,21 +862,26 @@ def update_checkin_type(type_id: str, checkin_type: dict = Body(...)):
 
     try:
         with connection.cursor() as cursor:
-            # Extract data from request body
-            cid = checkin_type.get("cid")
-            type_names = checkin_type.get("typenames")
+            cid = checkin_type.get("CID")
+            type_names = checkin_type.get("TypeNames")
 
-            sql = 'CALL UpdateCheckInType(%s, %s, %s)'
-            cursor.execute(sql, (type_id, cid, type_names))
-            connection.commit()  # Commit changes
+            check_sql = "SELECT COUNT(*) AS count FROM CheckInType WHERE TypeID = %s"
+            cursor.execute(check_sql, (type_id,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                sql = 'CALL spUpdateCheckInType(%s, %s, %s)'
+                cursor.execute(sql, (type_id, cid, type_names))
+                connection.commit()  # Commit changes
 
-            return {"message": "Check-in type updated successfully"}
+                return {"message": "Check-in type updated successfully"}
+            else:
+                return {"error": "Check-in Type Id not found", "TypeID": type_id}
+            
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
         return {"error": str(err)}
     finally:
         connection.close()
-
 
 @app.delete("/checkin-type/delete/{type_id}")
 def delete_checkin_type(type_id: str):
@@ -715,17 +891,24 @@ def delete_checkin_type(type_id: str):
 
     try:
         with connection.cursor() as cursor:
-            sql = 'CALL DeleteCheckInType(%s)'
-            cursor.execute(sql, (type_id,))
-            connection.commit()  # Commit changes
+            check_sql = "SELECT COUNT(*) AS count FROM CheckInType WHERE TypeID = %s"
+            cursor.execute(check_sql, (type_id,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
 
-            return {"message": f"Check-in type with ID '{type_id}' deleted successfully"}
+                sql = 'CALL spDeleteCheckInType(%s)'
+                cursor.execute(sql, (type_id,))
+                connection.commit()  # Commit changes
+
+                return {"message": f"Check-in type with ID '{type_id}' deleted successfully"}
+            else:
+                return {"error": "Check-in Type Id not found", "TypeID": type_id}
+            
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
         return {"error": str(err)}
     finally:
         connection.close()
-
 
 @app.get("/report-type/get/{report_type_id}")
 def get_report_type(report_type_id: str):
@@ -734,13 +917,41 @@ def get_report_type(report_type_id: str):
         return {"error": "Failed to connect to database"}
     try:
         with connection.cursor() as cursor:
-            sql = 'CALL GetReportType(%s)'
+            sql = 'CALL spGetReportType(%s)'
             cursor.execute(sql, (report_type_id,))
             myresult = cursor.fetchone()
             if myresult:
                 return myresult
             else:
                 return {"message": f"Report type with ID '{report_type_id}' not found"}
+    except pymysql.MySQLError as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+@app.post("/report-type/create")
+def create_report_type( report_type: dict = Body(...)):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as cursor:
+            report_type_id = report_type.get("ReportTypeID")
+            report_type_name = report_type.get("ReportTypeName")
+            
+            check_sql = "SELECT COUNT(*) AS count FROM ReportType WHERE ReportTypeID = %s"
+            cursor.execute(check_sql, (report_type_id,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                return {"error": "Report Type ID already exists", "ReportTypeID": report_type_id}
+            else:
+                sql = 'CALL spCreateReportType(%s, %s)'
+                cursor.execute(sql, (report_type_id, report_type_name))
+                connection.commit()
+                return {"message": "Report type updated successfully"}
+            
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
         return {"error": str(err)}
@@ -757,12 +968,18 @@ def update_report_type(report_type_id: str, report_type: dict = Body(...)):
         with connection.cursor() as cursor:
             # Extract data from request body
             report_type_name = report_type.get("reporttypename")
+            check_sql = "SELECT COUNT(*) AS count FROM ReportType WHERE ReportTypeID = %s"
+            cursor.execute(check_sql, (report_type_id,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                sql = 'CALL spUpdateReportType(%s, %s)'
+                cursor.execute(sql, (report_type_id, report_type_name))
+                connection.commit()  # Commit changes
 
-            sql = 'CALL UpdateReportType(%s, %s)'
-            cursor.execute(sql, (report_type_id, report_type_name))
-            connection.commit()  # Commit changes
-
-            return {"message": "Report type updated successfully"}
+                return {"message": "Report type updated successfully"}
+            else:
+                return {"error": "Report Type ID not found", "ReportTypeID": report_type_id}
+          
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
         return {"error": str(err)}
@@ -777,17 +994,23 @@ def delete_report_type(report_type_id: str):
 
     try:
         with connection.cursor() as cursor:
-            sql = 'CALL DeleteReportType(%s)'
-            cursor.execute(sql, (report_type_id,))
-            connection.commit()  # Commit changes
+            check_sql = "SELECT COUNT(*) AS count FROM ReportType WHERE ReportTypeID = %s"
+            cursor.execute(check_sql, (report_type_id,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                sql = 'CALL spDeleteReportType(%s)'
+                cursor.execute(sql, (report_type_id,))
+                connection.commit()  # Commit changes
 
-            return {"message": f"Report type with ID '{report_type_id}' deleted successfully"}
+                return {"message": f"Report type with ID '{report_type_id}' deleted successfully"}
+            else:
+                return {"error": "Report Type ID not found", "ReportTypeID": report_type_id}
+          
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
         return {"error": str(err)}
     finally:
         connection.close()
-
 
 @app.post("/company-report-type/create")
 async def company_create_report_type(company_report_type: dict = Body(...)):
@@ -798,23 +1021,27 @@ async def company_create_report_type(company_report_type: dict = Body(...)):
     try:
         with connection.cursor() as cursor:
             
-            company_report_type_id = company_report_type.get("reporttypeid")
-            cid = company_report_type.get("cid")
-            report_type_id = company_report_type.get("reporttypeid")
-            company_isdailyreportactive = company_report_type.get("isdailyreportactive")
-
-            sql = "CALL CreateCompanyReportType(%s, %s, %s, %s)"
-            cursor.execute(sql, (company_report_type_id, cid, report_type_id, company_isdailyreportactive))
-            connection.commit()
-
-            return {"message": "Company Report type created successfully"}
+            company_report_type_id = company_report_type.get("CompanyReportTypeID")
+            cid = company_report_type.get("CID")
+            report_type_id = company_report_type.get("ReportTypeID")
+            company_isdailyreportactive = company_report_type.get("IsDailyReportActive")
+            
+            check_sql = "SELECT COUNT(*) AS count FROM CompanyReportType WHERE CompanyReportTypeID = %s"
+            cursor.execute(check_sql, (company_report_type_id,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                return {"error": "company Report Type Id already exists", "CompanyReportTypeID": company_report_type_id}
+            else:
+                sql = "CALL spCreateCompanyReportType(%s, %s, %s, %s)"
+                cursor.execute(sql, (company_report_type_id, cid, report_type_id, company_isdailyreportactive))
+                connection.commit()
+                return {"message": "Company Report type created successfully"}
 
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
         return {"error": str(err)}
     finally:
         connection.close()
-
 
 @app.get("/company-report-type/get/{company_report_type_id}")
 def get_report_type(company_report_type_id: str):
@@ -823,7 +1050,7 @@ def get_report_type(company_report_type_id: str):
         return {"error": "Failed to connect to database"}
     try:
         with connection.cursor() as cursor:
-            sql = 'CALL GetCompanyReportType(%s)'
+            sql = 'CALL spGetCompanyReportType(%s)'
             cursor.execute(sql, (company_report_type_id,))
             myresult = cursor.fetchone()
             if myresult:
@@ -845,16 +1072,20 @@ def update_report_type(company_report_type_id: str, company_report_type: dict = 
     try:
         with connection.cursor() as cursor:
             # Extract data from request body
-            company_report_type_id = company_report_type.get("reporttypeid")
-            cid = company_report_type.get("cid")
-            report_type_id = company_report_type.get("reporttypeid")
-            company_isdailyreportactive = company_report_type.get("isdailyreportactive")
-
-            sql = 'CALL UpdateCompanyReportType(%s, %s, %s, %s)'
-            cursor.execute(sql, (company_report_type_id, cid, report_type_id, company_isdailyreportactive))
-            connection.commit()  # Commit changes
-
-            return {"message": "Company Report type updated successfully"}
+            cid = company_report_type.get("CID")
+            report_type_id = company_report_type.get("ReportTypeID")
+            company_isdailyreportactive = company_report_type.get("IsDailyReportActive")
+            
+            check_sql = "SELECT COUNT(*) AS count FROM CompanyReportType WHERE CompanyReportTypeID = %s"
+            cursor.execute(check_sql, (company_report_type_id,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                sql = 'CALL spUpdateCompanyReportType(%s, %s, %s, %s)'
+                cursor.execute(sql, (company_report_type_id, cid, report_type_id, company_isdailyreportactive))
+                connection.commit()  # Commit changes
+                return {"message": "Company Report type updated successfully"}
+            else:
+                 return {"error": "company Report Type Id not found", "CompanyReportTypeID": company_report_type_id}
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
         return {"error": str(err)}
@@ -869,18 +1100,22 @@ def delete_report_type(company_report_type_id: str):
 
     try:
         with connection.cursor() as cursor:
-            sql = 'CALL DeleteCompanyReportType(%s)'
-            cursor.execute(sql, (company_report_type_id,))
-            connection.commit()  # Commit changes
+            check_sql = "SELECT COUNT(*) AS count FROM CompanyReportType WHERE CompanyReportTypeID = %s"
+            cursor.execute(check_sql, (company_report_type_id,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                sql = 'CALL spDeleteCompanyReportType(%s)'
+                cursor.execute(sql, (company_report_type_id,))
+                connection.commit()  # Commit changes
 
-            return {"message": f"Report type with ID '{company_report_type_id}' deleted successfully"}
+                return {"message": f"Report type with ID '{company_report_type_id}' deleted successfully"}
+            else:
+                 return {"error": "company Report Type Id not found", "CompanyReportTypeID": company_report_type_id}
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
         return {"error": str(err)}
     finally:
         connection.close()
-
-
 
 @app.post("/report-schedules/create")
 async def create_report_schedule(report_schedule_data: dict = Body(...)):
@@ -891,27 +1126,32 @@ async def create_report_schedule(report_schedule_data: dict = Body(...)):
 
     try:
         
-        report_id = report_schedule_data.get("reportid")
-        cid = report_schedule_data.get("cid")
-        report_type_id = report_schedule_data.get("reporttypeid") 
-        is_delivered = report_schedule_data.get("isdelivered") 
-        is_active = report_schedule_data.get("isactive") 
-        report_time_generated = report_schedule_data.get("reporttimegenerated") 
-        report_time_sent = report_schedule_data.get("reporttimesent")
-        text_report_time = report_schedule_data.get("textreporttime") 
-        created_at = report_schedule_data.get("createdat") 
-        updated_at = report_schedule_data.get("updatedat")  
+        report_id = report_schedule_data.get("ReportID")
+        cid = report_schedule_data.get("CID")
+        report_type_id = report_schedule_data.get("ReportTypeID") 
+        is_delivered = report_schedule_data.get("IsDelivered") 
+        is_active = report_schedule_data.get("IsActive") 
+        report_time_generated = report_schedule_data.get("ReportTimeGenerated") 
+        report_time_sent = report_schedule_data.get("ReportTimeSent")
+        text_report_time = report_schedule_data.get("TextReportTime") 
+        created_at = report_schedule_data.get("CreatedAt") 
+        updated_at = report_schedule_data.get("UpdatedAt")  
 
         with connection.cursor() as cursor:
-            
-            sql = """
-                CALL CreateReportSchedule(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """
-            cursor.execute(sql, (report_id, cid, report_type_id, is_delivered, is_active,
-                                 report_time_generated, report_time_sent, text_report_time, created_at, updated_at))
-            connection.commit()
+            check_sql = "SELECT COUNT(*) AS count FROM ReportSchedule WHERE ReportID = %s"
+            cursor.execute(check_sql, (report_id,))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                return {"error": "Report schedule Report id already exists", "ReportID": report_id}
+            else:
+                sql = """
+                    CALL spCreateReportSchedule(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                cursor.execute(sql, (report_id, cid, report_type_id, is_delivered, is_active,
+                                    report_time_generated, report_time_sent, text_report_time, created_at, updated_at))
+                connection.commit()
 
-            return {"message": "Report schedule created successfully"}
+                return {"message": "Report schedule created successfully"}
 
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
@@ -930,28 +1170,31 @@ async def update_report_schedule(reportid: str ,
         return {"error": "Failed to connect to database"}
 
     try:
-        report_id = update_data.get("reportid")
-        c_id = update_data.get("cid")
-        report_type_id = update_data.get("reportypeid")
-        is_delivered = update_data.get("isdelivered")  
-        is_active = update_data.get("isactive")  
-        report_time_generated = update_data.get("reporttimegenerated")
-        report_time_sent = update_data.get("reporttimesent")
-        text_report_time = update_data.get("textreporttime")
-        created_at = update_data.get("createdat")
-        updated_at = update_data.get("updatedat")
+        report_type_id = update_data.get("ReportTypeID") 
+        is_delivered = update_data.get("IsDelivered") 
+        is_active = update_data.get("IsActive") 
+        report_time_generated = update_data.get("ReportTimeGenerated") 
+        report_time_sent = update_data.get("ReportTimeSent")
+        text_report_time = update_data.get("TextReportTime") 
+        created_at = update_data.get("CreatedAt") 
+        updated_at = update_data.get("UpdatedAt")
 
         with connection.cursor() as cursor:
+            check_sql = "SELECT COUNT(*) AS count FROM ReportSchedule WHERE ReportID = %s"
+            cursor.execute(check_sql, (reportid,))
+            result = cursor.fetchone()
             
-            sql = """
-                CALL UpdateReportSchedule(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """
-            cursor.execute(sql, (reportid, cid, report_type_id, is_delivered, is_active,
-                                 report_time_generated, report_time_sent, text_report_time, created_at, updated_at))
-            connection.commit()
+            if result['count'] > 0:
+                sql = """
+                    CALL spUpdateReportSchedule(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                cursor.execute(sql, (reportid, cid, report_type_id, is_delivered, is_active,
+                                    report_time_generated, report_time_sent, text_report_time, created_at, updated_at))
+                connection.commit()
 
-            return {"message": "Report schedule updated successfully"}
-
+                return {"message": "Report schedule updated successfully"}
+            else:
+                return {"error": "Report schedule Report id not found", "ReportID": reportid}
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
         return {"error": str(err)}
@@ -970,11 +1213,18 @@ async def delete_report_schedule(reportid: str,
 
     try:
         with connection.cursor() as cursor:
-            sql = "CALL DeleteReportSchedule(%s, %s)"
-            cursor.execute(sql, (reportid, cid))
-            connection.commit()
+            check_sql = "SELECT COUNT(*) AS count FROM ReportSchedule WHERE ReportID = %s"
+            cursor.execute(check_sql, (reportid,))
+            result = cursor.fetchone()
+            
+            if result['count'] > 0:
+                sql = "CALL spDeleteReportSchedule(%s, %s)"
+                cursor.execute(sql, (reportid, cid))
+                connection.commit()
 
-            return  {"message": "Report schedule deleted successfully"} 
+                return  {"message": "Report schedule deleted successfully"} 
+            else:
+                return {"error": "Report schedule Report id not found", "ReportID": reportid}
 
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
@@ -994,7 +1244,7 @@ async def get_report_schedule(reportid: str ,
 
     try:
         with connection.cursor() as cursor:
-            sql = "CALL GetReportSchedule(%s, %s)"
+            sql = "CALL spGetReportSchedule(%s, %s)"
             cursor.execute(sql, (reportid, cid))
             myresult = cursor.fetchone()  
 
@@ -1010,5 +1260,139 @@ async def get_report_schedule(reportid: str ,
     finally:
         connection.close()
 
+#getting the transaction Status
+
+@app.get("/transaction/get/{transaction_id}")
+async def get_transaction(transaction_id: str):
+  connection = connect_to_database()
+  if not connection:
+      return {"error": "Failed to connect to database"}
+
+  try:
+      with connection.cursor() as mycursor:
+          sql = "CALL spGetTransactionStatus(%s);"
+          mycursor.execute(sql, (transaction_id,))
+          transaction = mycursor.fetchone()  # Fetch only one row (if found)
+          if transaction:
+              return transaction
+          else:
+              return {"message": f"Transaction with ID '{transaction_id}' not found"}
+
+  except pymysql.Error as err:
+      print(f"Error calling stored procedure: {err}")
+      return {"error": str(err)}
+  finally:
+      connection.close()
+
+# Creating transaction status
+@app.post("/transaction/create")
+async def create_transaction(transaction: dict = Body(...)):
+  connection = connect_to_database()
+  if not connection:
+      return {"error": "Failed to connect to database"}
+
+  try:
+      with connection.cursor() as mycursor:
+          # Extract data from request body
+          TransactionID = transaction.get("TransactionID")
+          CID = transaction.get("CID")
+          UserName = transaction.get("UserName")
+          CreditCardEncrypted = transaction.get("CreditCardEncrypted")
+          ExpiryDate = transaction.get("ExpiryDate")  
+          CVV = transaction.get("CVV")
+          TransactionAmount = transaction.get("TransactionAmount")
+          TransactionStartTime = transaction.get("TransactionStartTime")  
+          TransactionEndTime = transaction.get("TransactionEndTime")  
+          TransactionStatus = transaction.get("TransactionStatus")
+          BillingAddress = transaction.get("BillingAddress")
+
+          check_sql = "SELECT COUNT(*) AS count FROM TransactionStatus WHERE TransactionID = %s"
+          mycursor.execute(check_sql,(TransactionID))
+          result = mycursor.fetchone()
+          if result['count'] > 0:
+            return {"error": "Transaction Id already exists", "TransactionID": TransactionID}
+          else:
+            # Call the stored procedure
+            sql = "CALL spCreateTransactionStatus(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            mycursor.execute(sql, (TransactionID, CID, UserName, CreditCardEncrypted, ExpiryDate, CVV, TransactionAmount, TransactionStartTime, TransactionEndTime, TransactionStatus, BillingAddress))
+            connection.commit() 
+
+            return {"message": "Transaction created successfully"}
+
+  except pymysql.Error as err:
+      print(f"Error calling stored procedure: {err}")
+      return {"error": str(err)}
+  finally:
+      connection.close()
+
+# updating the transaction status 
+@app.put("/transaction/update/{transaction_id}")
+async def update_transaction(transaction_id: str, transaction: dict = Body(...)):
+  connection = connect_to_database()
+  if not connection:
+      return {"error": "Failed to connect to database"}
+
+  try:
+      with connection.cursor() as mycursor:
+          # Extract data from request body and path parameter
+          CID = transaction.get("CID")
+          UserName = transaction.get("UserName")
+          CreditCardEncrypted = transaction.get("CreditCardEncrypted")
+          ExpiryDate = transaction.get("ExpiryDate")  # Assuming a valid date format
+          CVV = transaction.get("CVV")
+          TransactionAmount = transaction.get("TransactionAmount")
+          TransactionStartTime = transaction.get("TransactionStartTime")  # Assuming a valid datetime format
+          TransactionEndTime = transaction.get("TransactionEndTime")  # Assuming a valid datetime format
+          TransactionStatus = transaction.get("TransactionStatus")
+          BillingAddress = transaction.get("BillingAddress")
+
+          # Call the stored procedure
+          check_sql = "SELECT COUNT(*) AS count FROM TransactionStatus WHERE TransactionID = %s"
+          mycursor.execute(check_sql,(transaction_id))
+          result = mycursor.fetchone()
+          if result['count'] > 0:
+              sql = "CALL spUpdateTransactionStatus(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);"
+              mycursor.execute(sql, (transaction_id, CID, UserName, CreditCardEncrypted, ExpiryDate, CVV, TransactionAmount, TransactionStartTime, TransactionEndTime, TransactionStatus, BillingAddress))
+              connection.commit()  # Commit changes
+
+              return {"message": f"Transaction with ID '{transaction_id}' updated successfully"}
+          else:
+              return {"error":"Transaction Id not found", "TransactionID": transaction_id}
+  
+
+  except pymysql.Error as err:
+      print(f"Error calling stored procedure: {err}")
+      return {"error": str(err)}
+  finally:
+      connection.close()
+
+# deleting the transaction status 
+@app.delete("/transaction/delete/{transaction_id}")
+async def delete_transaction(transaction_id: str):
+  connection = connect_to_database()
+  if not connection:
+      return {"error": "Failed to connect to database"}
+
+  try:
+      with connection.cursor() as mycursor:
+          
+          check_sql = "SELECT COUNT(*) AS count FROM TransactionStatus WHERE TransactionID = %s"
+          mycursor.execute(check_sql,(transaction_id))
+          result = mycursor.fetchone()
+          if result['count'] > 0:
+          # Call the stored procedure
+            sql = "CALL spDeleteTransactionStatus(%s);"
+            mycursor.execute(sql, (transaction_id,))
+            connection.commit()  # Commit changes
+
+            return {"message": f"Transaction with ID '{transaction_id}' deleted successfully"}
+          else:
+              return {"error": "Transaction Id not found", "TransactionID": transaction_id}
+
+  except pymysql.Error as err:
+      print(f"Error calling stored procedure: {err}")
+      return {"error": str(err)}
+  finally:
+      connection.close()
 
 handler=mangum.Mangum(app)
