@@ -1,3 +1,4 @@
+from datetime import date
 from fastapi import FastAPI, Body
 import mangum
 import pymysql
@@ -1394,5 +1395,145 @@ async def delete_transaction(transaction_id: str):
       return {"error": str(err)}
   finally:
       connection.close()
+
+@app.post("/dailyreport/create")
+async def create_daily_report(report: dict = Body(...)):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as cursor:
+            # Extract data from request body
+            emp_id = report.get("EmpID")
+            cid = report.get("CID")
+            report_date = report.get("Date")
+            type_id = report.get("TypeID")
+            check_in_snap = report.get("CheckInSnap")
+            check_in_time = report.get("CheckInTime")
+            check_out_snap = report.get("CheckOutSnap")
+            check_out_time = report.get("CheckOutTime")
+            time_worked = report.get("TimeWorked")
+
+            check_sql = "SELECT COUNT(*) AS count FROM DailyReportTable WHERE EmpID = %s AND CID = %s AND Date = %s"
+            cursor.execute(check_sql,(emp_id, cid, report_date))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                return {"error": "Employee Id already exists", "EmpID": emp_id}
+            else:
+                sql = """
+                    CALL spCreateDailyReport(
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    );
+                """
+                cursor.execute(sql, (
+                    emp_id, cid, type_id, check_in_snap,
+                    check_in_time, check_out_snap, check_out_time,
+                    time_worked, report_date
+                ))
+                connection.commit()  # Commit changes
+
+                return {"message": "Daily report created successfully"}
+
+    except pymysql.MySQLError as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+# Endpoint to get a daily report
+@app.get("/dailyreport/get/{emp_id}/{cid}/{date}")
+async def get_daily_report(emp_id: str, cid: str, date: date):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as cursor:
+            sql = "CALL spGetDailyReport(%s, %s, %s);"
+            cursor.execute(sql, (emp_id, cid, date))
+            report = cursor.fetchall()
+            if report:
+                return report
+            else:
+                return {"error" : f"Daily report for EmpID '{emp_id}', CID '{cid}' on '{date}' not found"}
+
+    except pymysql.MySQLError as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+# Endpoint to update a daily report
+@app.put("/dailyreport/update/{emp_id}/{cid}/{date}")
+async def update_daily_report(emp_id: str,cid: str, date: date, report: dict = Body(...)):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as cursor:
+            
+            type_id = report.get("TypeID")
+            check_in_snap = report.get("CheckInSnap")
+            check_in_time = report.get("CheckInTime")
+            check_out_snap = report.get("CheckOutSnap")
+            check_out_time = report.get("CheckOutTime")
+            time_worked = report.get("TimeWorked")
+
+            check_sql = "SELECT COUNT(*) AS count FROM DailyReportTable WHERE EmpID = %s AND CID = %s AND Date = %s"
+            cursor.execute(check_sql,(emp_id, cid, date))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                sql = """
+                    CALL spUpdateDailyReport(
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    );
+                """
+                cursor.execute(sql, (
+                    emp_id, cid, date, type_id, check_in_snap,
+                    check_in_time, check_out_snap, check_out_time,
+                    time_worked
+                ))
+                connection.commit() 
+
+                return {"message": "Daily report updated successfully"}
+            else:
+                return {"error": "Employee Id not found", "EmpID": emp_id}
+
+    except pymysql.MySQLError as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+# Endpoint to delete a daily report
+@app.delete("/dailyreport/delete/{emp_id}/{cid}/{date}")
+async def delete_daily_report(emp_id: str, cid: str, date: date):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as cursor:
+            check_sql = "SELECT COUNT(*) AS count FROM DailyReportTable WHERE EmpID = %s AND CID = %s AND Date = %s"
+            cursor.execute(check_sql,(emp_id, cid, date))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+
+                sql = "CALL spDeleteDailyReport(%s, %s, %s);"
+                cursor.execute(sql, (emp_id, cid, date))
+                connection.commit()
+
+                return {"message": "Daily report deleted successfully"}
+            else:
+                return {"error": "Employee Id not found", "EmpID": emp_id}
+
+    except pymysql.MySQLError as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
 
 handler=mangum.Mangum(app)

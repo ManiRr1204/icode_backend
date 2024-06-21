@@ -126,6 +126,24 @@ CREATE TABLE `TransactionStatus` (
 
 ALTER TABLE `TransactionStatus` ADD FOREIGN KEY (`CID`, `UserName`) REFERENCES `Company` (`CID`,`UserName`);
 
+CREATE TABLE `DailyReportTable` (
+  `EmpID` char(36),
+  `CID` char(36),
+  `TypeID` char(36),
+  `CheckInSnap` blob,
+  `CheckInTime` datetime,
+  `CheckOutSnap` blob,
+  `CheckOutTime` datetime,
+  `TimeWorked` decimal(10,2),
+  `Date` date,
+  PRIMARY KEY (`EmpID`,`CID`)
+);
+
+ALTER TABLE `DailyReportTable` ADD FOREIGN KEY (`CID`) REFERENCES `Company` (`CID`);
+
+
+
+
 -- Stored Procedures-- 
 -- Store Procedures for Company Table-- 
 
@@ -1124,4 +1142,120 @@ BEGIN
     COMMIT;
 END //
 
+DELIMITER :
+
+-- Store Procedures for Daily Report Table-- 
+
 DELIMITER //
+
+CREATE PROCEDURE spCreateDailyReport(
+    IN p_EmpID CHAR(36),
+    IN p_CID CHAR(36),
+    IN p_TypeID CHAR(36),
+    IN p_CheckInSnap BLOB,
+    IN p_CheckInTime DATETIME,
+    IN p_CheckOutSnap BLOB,
+    IN p_CheckOutTime DATETIME,
+    IN p_TimeWorked DECIMAL(10, 2),
+    IN p_Date DATE
+)
+BEGIN
+    INSERT INTO DailyReportTable (
+        EmpID, 
+        CID, 
+        TypeID, 
+        CheckInSnap, 
+        CheckInTime, 
+        CheckOutSnap, 
+        CheckOutTime, 
+        TimeWorked,
+        Date
+    ) VALUES (
+        p_EmpID, 
+        p_CID, 
+        p_TypeID, 
+        p_CheckInSnap, 
+        p_CheckInTime, 
+        p_CheckOutSnap, 
+        p_CheckOutTime, 
+        p_TimeWorked,
+        p_Date
+    );
+END //
+
+DELIMITER :
+
+
+DELIMITER //
+
+CREATE PROCEDURE spDeleteDailyReport(
+    IN p_EmpID CHAR(36),
+    IN p_CID CHAR(36),
+    IN p_Date DATE
+)
+BEGIN
+    DELETE FROM DailyReportTable
+    WHERE EmpID = p_EmpID AND CID = p_CID AND Date = p_Date;
+END //
+
+DELIMITER :
+
+
+DELIMITER //
+
+CREATE PROCEDURE spGetDailyReport(
+    IN p_EmpID CHAR(36),
+    IN p_CID CHAR(36),
+    IN p_Date DATE
+)
+BEGIN
+    SELECT 
+        EmpID, 
+        CID, 
+        TypeID, 
+        CheckInSnap, 
+        CheckInTime, 
+        CheckOutSnap, 
+        CheckOutTime, 
+        TimeWorked,
+        Date
+    FROM 
+        DailyReportTable
+    WHERE 
+        EmpID = p_EmpID AND
+        CID = p_CID AND
+        Date = p_Date;
+END //
+
+DELIMITER :
+
+
+DELIMITER //
+
+CREATE PROCEDURE spUpdateDailyReport(
+    IN p_EmpID CHAR(36),
+    IN p_CID CHAR(36),
+    IN p_Date DATE,
+    IN p_TypeID CHAR(36),
+    IN p_CheckInSnap BLOB,
+    IN p_CheckInTime DATETIME,
+    IN p_CheckOutSnap BLOB,
+    IN p_CheckOutTime DATETIME,
+    IN p_TimeWorked DECIMAL(10, 2)
+)
+BEGIN
+    UPDATE DailyReportTable
+    SET 
+        TypeID = p_TypeID,
+        CheckInSnap = p_CheckInSnap,
+        CheckInTime = p_CheckInTime,
+        CheckOutSnap = p_CheckOutSnap,
+        CheckOutTime = p_CheckOutTime,
+        TimeWorked = p_TimeWorked
+    WHERE 
+        EmpID = p_EmpID AND
+        CID = p_CID AND
+        Date = p_Date;
+END //
+
+DELIMITER :
