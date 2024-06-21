@@ -136,12 +136,11 @@ CREATE TABLE `DailyReportTable` (
   `CheckOutTime` datetime,
   `TimeWorked` decimal(10,2),
   `Date` date,
-  PRIMARY KEY (`EmpID`,`CID`)
+  PRIMARY KEY (`Date`,`EmpID`,`CID`)
 );
 
 ALTER TABLE `DailyReportTable` ADD FOREIGN KEY (`CID`) REFERENCES `Company` (`CID`);
-
-
+ALTER TABLE `DailyReportTable` ADD FOREIGN KEY (`EmpID`) REFERENCES `Employee` (`EmpID`);
 
 
 -- Stored Procedures-- 
@@ -356,6 +355,16 @@ END //
 
 DELIMITER ;
 
+DELIMITER //
+
+CREATE PROCEDURE spGetAllEmployee (
+	IN p_CID CHAR(36)
+)
+BEGIN
+  SELECT * FROM Employee WHERE CID = p_CID;
+END//
+
+DELIMITER ;
 
 DELIMITER //
 

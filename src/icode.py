@@ -66,7 +66,7 @@ def get_company(company_id: str):
             if myresult:
                 return myresult
             else:
-                return {"message": f"Company with ID '{company_id}' not found"}
+                return {"error": f"Company with ID '{company_id}' not found"}
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
         return {"error": str(err)}
@@ -87,7 +87,7 @@ def get_company(userName: str):
             if myresult:
                 return myresult
             else:
-                return {"message": "UserName not found"}
+                return {"error": "UserName not found"}
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
         return {"error": str(err)}
@@ -434,6 +434,30 @@ async def update_device_setting(deviceId: str, companyId: str, deviceSetting: di
     finally:
         connection.close()
 
+@app.get("/employee/getall/{cid}")
+async def get__all_employee(cid : str):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as mycursor:
+            sql = "CALL spGetAllEmployee(%s);"
+            mycursor.execute(sql, (cid,)) 
+            employee = mycursor.fetchall()
+
+            if employee:
+                return employee
+            else:
+                return {"error": f"Company with ID '{cid}' not found"}
+
+    except pymysql.Error as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+
 
 @app.get("/employee/get/{emp_id}")
 async def get_employee(emp_id: str):
@@ -449,7 +473,7 @@ async def get_employee(emp_id: str):
             if employee:
                 return employee
             else:
-                return {"message": f"Employee with ID '{emp_id}' not found"}
+                return {"error": f"Employee with ID '{emp_id}' not found"}
 
     except pymysql.Error as err:
         print(f"Error calling stored procedure: {err}")
