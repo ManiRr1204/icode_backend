@@ -3,17 +3,12 @@ from fastapi import FastAPI, Body
 import mangum
 import pymysql
 
-from starlette.middleware.cors import CORSMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-# origins = [
-#     "http://localhost:5500",  
-#     "https://your-production-domain.com"  
-# ]
-
 app.add_middleware(
-    CORSMiddleware, allow_origins=["*", "http://localhost:5500"], allow_credentials = True, allow_methods=["*"], allow_headers=["*"]
+    CORSMiddleware, allow_origins=["*"], allow_credentials = True, allow_methods=["*"], allow_headers=["*"]
 )
 
 def connect_to_database():
@@ -171,27 +166,38 @@ async def update_company(company_id: str, company: dict = Body(...)):
     try:
         with connection.cursor() as cursor:
            # Extract data from request body
-            cid = company.get("CID")
             cname = company.get("CName")
             clogo = company.get("CLogo") 
             caddress = company.get("CAddress")
             username = company.get("UserName")
             password = company.get("Password")
             
-            # Check if CompanyID is already exists
+            
             check_sql = "SELECT COUNT(*) AS count FROM Company WHERE UserName = %s"
-            cursor.execute(check_sql, (username,))
+            cursor.execute(check_sql, (username))
             result = cursor.fetchone()
             if result['count'] > 0:
-                return {"error": "UserName already exists"}
+
+                check_sql_2 = "SELECT COUNT(*) AS count FROM Company WHERE UserName = %s AND CID = %s"
+                cursor.execute(check_sql_2, (username, company_id))
+                result_2 = cursor.fetchone()
+
+                if result_2['count'] > 0:
+                    sql = "CALL spUpdateCompany(%s, %s, %s, %s, %s, %s)"
+                    cursor.execute(sql, (company_id, cname, clogo, caddress, username, password))
+                    connection.commit()
+                    return {"message": "Company updated successfully", "CID": company_id, "UserName": username}
+                
+                else:
+                    return {"error": "UserName already exists with different company"}
 
             else:
 
                 sql = "CALL spUpdateCompany(%s, %s, %s, %s, %s, %s)"
-                cursor.execute(sql, (cid, cname, clogo, caddress, username, password))
+                cursor.execute(sql, (company_id, cname, clogo, caddress, username, password))
                 connection.commit()
 
-                return {"message": "Company updated successfully", "CID": cid, "UserName": username}
+                return {"message": "Company updated successfully", "CID": company_id, "UserName": username}
 
     except pymysql.Error as err:
         print(f"Error calling stored procedure: {err}")
