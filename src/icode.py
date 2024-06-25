@@ -1445,8 +1445,8 @@ async def create_daily_report(report: dict = Body(...)):
             check_out_time = report.get("CheckOutTime")
             time_worked = report.get("TimeWorked")
 
-            check_sql = "SELECT COUNT(*) AS count FROM DailyReportTable WHERE EmpID = %s AND CID = %s AND Date = %s"
-            cursor.execute(check_sql,(emp_id, cid, report_date))
+            check_sql = "SELECT COUNT(*) AS count FROM DailyReportTable WHERE EmpID = %s AND CID = %s AND CheckInTime = %s"
+            cursor.execute(check_sql,(emp_id, cid, check_in_time))
             result = cursor.fetchone()
             if result['count'] > 0:
                 return {"error": "Employee Id already exists", "EmpID": emp_id}
@@ -1472,8 +1472,8 @@ async def create_daily_report(report: dict = Body(...)):
         connection.close()
 
 # Endpoint to get a daily report
-@app.get("/dailyreport/get/{emp_id}/{cid}/{date}")
-async def get_daily_report(emp_id: str, cid: str, date: date):
+@app.get("/dailyreport/get/{emp_id}/{cid}/{CheckInTime}")
+async def get_daily_report(emp_id: str, cid: str, CheckInTime: str):
     connection = connect_to_database()
     if not connection:
         return {"error": "Failed to connect to database"}
@@ -1481,12 +1481,12 @@ async def get_daily_report(emp_id: str, cid: str, date: date):
     try:
         with connection.cursor() as cursor:
             sql = "CALL spGetDailyReport(%s, %s, %s);"
-            cursor.execute(sql, (emp_id, cid, date))
+            cursor.execute(sql, (emp_id, cid, CheckInTime))
             report = cursor.fetchall()
             if report:
                 return report
             else:
-                return {"error" : f"Daily report for EmpID '{emp_id}', CID '{cid}' on '{date}' not found"}
+                return {"error" : f"Daily report for EmpID '{emp_id}', CID '{cid}' on '{CheckInTime}' not found"}
 
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
@@ -1495,8 +1495,8 @@ async def get_daily_report(emp_id: str, cid: str, date: date):
         connection.close()
 
 # Endpoint to update a daily report
-@app.put("/dailyreport/update/{emp_id}/{cid}/{date}")
-async def update_daily_report(emp_id: str,cid: str, date: date, report: dict = Body(...)):
+@app.put("/dailyreport/update/{emp_id}/{cid}/{CheckInTime}")
+async def update_daily_report(emp_id: str,cid: str, CheckInTime: str, report: dict = Body(...)):
     connection = connect_to_database()
     if not connection:
         return {"error": "Failed to connect to database"}
@@ -1505,14 +1505,14 @@ async def update_daily_report(emp_id: str,cid: str, date: date, report: dict = B
         with connection.cursor() as cursor:
             
             type_id = report.get("TypeID")
+            current_date = report.get("Date")
             check_in_snap = report.get("CheckInSnap")
-            check_in_time = report.get("CheckInTime")
             check_out_snap = report.get("CheckOutSnap")
             check_out_time = report.get("CheckOutTime")
             time_worked = report.get("TimeWorked")
 
-            check_sql = "SELECT COUNT(*) AS count FROM DailyReportTable WHERE EmpID = %s AND CID = %s AND Date = %s"
-            cursor.execute(check_sql,(emp_id, cid, date))
+            check_sql = "SELECT COUNT(*) AS count FROM DailyReportTable WHERE EmpID = %s AND CID = %s AND CheckInTime = %s"
+            cursor.execute(check_sql,(emp_id, cid, CheckInTime))
             result = cursor.fetchone()
             if result['count'] > 0:
                 sql = """
@@ -1521,8 +1521,8 @@ async def update_daily_report(emp_id: str,cid: str, date: date, report: dict = B
                     );
                 """
                 cursor.execute(sql, (
-                    emp_id, cid, date, type_id, check_in_snap,
-                    check_in_time, check_out_snap, check_out_time,
+                    emp_id, cid, current_date, type_id, check_in_snap, CheckInTime,
+                    check_out_snap, check_out_time,
                     time_worked
                 ))
                 connection.commit() 
@@ -1538,21 +1538,21 @@ async def update_daily_report(emp_id: str,cid: str, date: date, report: dict = B
         connection.close()
 
 # Endpoint to delete a daily report
-@app.delete("/dailyreport/delete/{emp_id}/{cid}/{date}")
-async def delete_daily_report(emp_id: str, cid: str, date: date):
+@app.delete("/dailyreport/delete/{emp_id}/{cid}/{checkinTime}")
+async def delete_daily_report(emp_id: str, cid: str, checkinTime: str):
     connection = connect_to_database()
     if not connection:
         return {"error": "Failed to connect to database"}
 
     try:
         with connection.cursor() as cursor:
-            check_sql = "SELECT COUNT(*) AS count FROM DailyReportTable WHERE EmpID = %s AND CID = %s AND Date = %s"
-            cursor.execute(check_sql,(emp_id, cid, date))
+            check_sql = "SELECT COUNT(*) AS count FROM DailyReportTable WHERE EmpID = %s AND CID = %s AND CheckInTime = %s"
+            cursor.execute(check_sql,(emp_id, cid, checkinTime))
             result = cursor.fetchone()
             if result['count'] > 0:
 
                 sql = "CALL spDeleteDailyReport(%s, %s, %s);"
-                cursor.execute(sql, (emp_id, cid, date))
+                cursor.execute(sql, (emp_id, cid, checkinTime))
                 connection.commit()
 
                 return {"message": "Daily report deleted successfully"}

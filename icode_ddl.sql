@@ -136,7 +136,7 @@ CREATE TABLE `DailyReportTable` (
   `CheckOutTime` datetime,
   `TimeWorked` decimal(10,2),
   `Date` date,
-  PRIMARY KEY (`Date`,`EmpID`,`CID`)
+  PRIMARY KEY (`CheckInTime`,`EmpID`,`CID`)
 );
 
 ALTER TABLE `DailyReportTable` ADD FOREIGN KEY (`CID`) REFERENCES `Company` (`CID`);
@@ -1200,11 +1200,11 @@ DELIMITER //
 CREATE PROCEDURE spDeleteDailyReport(
     IN p_EmpID CHAR(36),
     IN p_CID CHAR(36),
-    IN p_Date DATE
+    IN p_CheckInTime DATETIME
 )
 BEGIN
     DELETE FROM DailyReportTable
-    WHERE EmpID = p_EmpID AND CID = p_CID AND Date = p_Date;
+    WHERE EmpID = p_EmpID AND CID = p_CID AND CheckInTime = p_CheckInTime;
 END //
 
 DELIMITER :
@@ -1215,7 +1215,7 @@ DELIMITER //
 CREATE PROCEDURE spGetDailyReport(
     IN p_EmpID CHAR(36),
     IN p_CID CHAR(36),
-    IN p_Date DATE
+    IN p_CheckInTime DATETIME
 )
 BEGIN
     SELECT 
@@ -1233,7 +1233,7 @@ BEGIN
     WHERE 
         EmpID = p_EmpID AND
         CID = p_CID AND
-        Date = p_Date;
+        CheckInTime = p_CheckInTime;
 END //
 
 DELIMITER :
@@ -1256,15 +1256,15 @@ BEGIN
     UPDATE DailyReportTable
     SET 
         TypeID = p_TypeID,
+        Date = p_Date,
         CheckInSnap = p_CheckInSnap,
-        CheckInTime = p_CheckInTime,
         CheckOutSnap = p_CheckOutSnap,
         CheckOutTime = p_CheckOutTime,
         TimeWorked = p_TimeWorked
     WHERE 
         EmpID = p_EmpID AND
         CID = p_CID AND
-        Date = p_Date;
+        CheckInTime = p_CheckInTime;
 END //
 
 DELIMITER :
