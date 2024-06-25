@@ -1284,3 +1284,29 @@ BEGIN
 END //
 
 DELIMITER :
+
+
+DELIMITER //
+
+CREATE PROCEDURE spGetEmployeeDailyReport(IN reportDate DATE)
+BEGIN
+    SELECT 
+        CONCAT(Employee.FName, " ", Employee.LName) AS "Name", 
+        Employee.PIN AS "Pin", 
+        DailyReportTable.TypeID AS "Type", 
+        DailyReportTable.CheckInTime  AS "CheckInTime", 
+        DailyReportTable.CheckOutTime  AS "CheckOutTime",  
+        DailyReportTable.TimeWorked  AS "TimeWorked"
+    FROM 
+        Employee
+    JOIN 
+        DailyReportTable 
+    ON 
+        Employee.EmpID = DailyReportTable.EmpID 
+    AND 
+        Employee.CID = DailyReportTable.CID 
+    WHERE 
+        DailyReportTable.Date = reportDate;
+END //
+
+DELIMITER ;

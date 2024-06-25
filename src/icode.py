@@ -1589,4 +1589,27 @@ async def delete_daily_report(emp_id: str, cid: str, checkinTime: str):
         connection.close()
 
 
+@app.get("/dailyreport/getdatebasedata/{date_value}")
+async def get_employee(date_value: str):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as mycursor:
+            sql = "CALL spGetEmployeeDailyReport(%s);"
+            mycursor.execute(sql, (date_value,))  # Enclose emp_id in a tuple
+            daily_report = mycursor.fetchall()
+            if daily_report:
+                return daily_report
+            else:
+                return {"error": f"Daily report '{date_value}' not found"}
+
+    except pymysql.Error as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+
 handler=mangum.Mangum(app)
