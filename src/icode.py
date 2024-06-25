@@ -228,6 +228,27 @@ async def get_customer_by_id(customer_id: str):
     finally:
         connection.close()
 
+@app.get("/customer/getUsingCID/{c_id}")
+def get_company(c_id: str):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as cursor:
+            sql = 'CALL spGetCustomerUsingCID(%s)'
+            cursor.execute(sql, (c_id,))
+            myresult = cursor.fetchone()
+            if myresult:
+                return myresult
+            else:
+                return {"error": "Customer ID not found"}
+    except pymysql.MySQLError as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
 # POST request to create a company
 @app.post("/customer/create")
 async def create_customer(customer = Body(...)):

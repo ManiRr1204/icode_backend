@@ -256,6 +256,16 @@ END //
 
 DELIMITER ;
 
+DELIMITER //
+
+CREATE PROCEDURE spGetCustomerUsingCID (
+IN p_cid CHAR(36)
+)
+BEGIN
+  SELECT * FROM Customer WHERE CID = p_cid;
+END//
+
+DELIMITER ;
 
 DELIMITER //
 
