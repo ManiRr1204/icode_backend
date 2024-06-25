@@ -622,6 +622,7 @@ async def create_contact(contact: dict = Body(...)):
             # Extract data from request body
             request_id = contact.get("RequestID")
             cid = contact.get("CID")
+            name = contact.get("Name")
             requestor_email = contact.get("RequestorEmail")
             concerns_questions = contact.get("ConcernsQuestions")
             phone_number = contact.get("PhoneNumber")
@@ -636,11 +637,11 @@ async def create_contact(contact: dict = Body(...)):
             else:
                 sql = """
                     CALL spCreateContact(
-                        %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, %s, %s
                     );
                 """
                 cursor.execute(sql, (
-                    request_id, cid, requestor_email,
+                    request_id, cid, name, requestor_email,
                     concerns_questions, phone_number, status
                 ))
                 connection.commit()
@@ -687,6 +688,7 @@ async def update_contact(request_id : str, contact: dict = Body(...)):
         with connection.cursor() as cursor:
             
             cid = contact.get("CID")
+            name = contact.get("Name")
             requestor_email = contact.get("RequestorEmail")
             concerns_questions = contact.get("ConcernsQuestions")
             phone_number = contact.get("PhoneNumber")
@@ -699,11 +701,11 @@ async def update_contact(request_id : str, contact: dict = Body(...)):
             if result['count'] > 0:
                 sql = """
                     CALL spUpdateContact(
-                        %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, %s, %s
                     );
                 """
                 cursor.execute(sql, (
-                    request_id, cid, requestor_email,
+                    request_id, cid, name, requestor_email,
                     concerns_questions, phone_number, status
                 ))
                 connection.commit()  # Commit changes

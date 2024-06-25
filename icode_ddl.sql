@@ -51,7 +51,8 @@ ALTER TABLE `DeviceSetting` ADD FOREIGN KEY (`CID`) REFERENCES `Company` (`CID`)
 
 CREATE TABLE `ContactUS` (
     `RequestID` CHAR(36) PRIMARY KEY,
-    `CID` char(36),
+    `CID` CHAR(36),
+    `Name` CHAR(36),
     `RequestorEmail` VARCHAR(255) NOT NULL,
     `ConcernsQuestions` TEXT,
     `PhoneNumber` VARCHAR(20),
@@ -541,6 +542,7 @@ DELIMITER //
 CREATE PROCEDURE spCreateContact(
     IN p_requestId CHAR(36),
     IN p_CID CHAR(36),
+    IN p_Name CHAR(36),
     IN p_requestorEmail VARCHAR(255),
     IN p_concerns_questions TEXT,
     IN p_phoneNumber VARCHAR(20),
@@ -550,6 +552,7 @@ BEGIN
     INSERT INTO ContactUS (
         RequestID, 
         CID, 
+        Name,
         RequestorEmail, 
         ConcernsQuestions, 
         PhoneNumber, 
@@ -557,6 +560,7 @@ BEGIN
     ) VALUES (
         p_requestId, 
         p_CID, 
+        p_Name,
         p_requestorEmail, 
         p_concerns_questions, 
         p_phoneNumber, 
@@ -599,6 +603,7 @@ DELIMITER //
 CREATE PROCEDURE spUpdateContact(
     IN p_requestId CHAR(36),
     IN p_CID CHAR(36),
+    IN p_Name CHAR(36),
     IN p_requestorEmail VARCHAR(255),
     IN p_concerns_questions TEXT,
     IN p_phoneNumber VARCHAR(20),
@@ -608,6 +613,7 @@ BEGIN
     UPDATE ContactUS
     SET 
         CID = p_CID,
+        Name = p_Name,
         RequestorEmail = p_requestorEmail, 
         ConcernsQuestions = p_concerns_questions, 
         PhoneNumber = p_phoneNumber, 
