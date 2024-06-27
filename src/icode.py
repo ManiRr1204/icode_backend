@@ -1075,21 +1075,24 @@ async def company_create_report_type(company_report_type: dict = Body(...)):
     try:
         with connection.cursor() as cursor:
             
-            company_report_type_id = company_report_type.get("CompanyReportTypeID")
+            company_reporter_email = company_report_type.get("CompanyReporterEmail")
             cid = company_report_type.get("CID")
-            report_type_id = company_report_type.get("ReportTypeID")
             company_isdailyreportactive = company_report_type.get("IsDailyReportActive")
+            company_isweeklyreportactive = company_report_type.get("IsWeeklyReportActive")
+            company_isbiweeklyreportactive = company_report_type.get("IsBiWeeklyReportActive")
+            company_ismonthlyreportactive = company_report_type.get("IsMonthlyReportActive")
+            company_isbimonthlyreportactive = company_report_type.get("IsBiMonthlyReportActive")
             
-            check_sql = "SELECT COUNT(*) AS count FROM CompanyReportType WHERE CompanyReportTypeID = %s"
-            cursor.execute(check_sql, (company_report_type_id,))
+            check_sql = "SELECT COUNT(*) AS count FROM CompanyReportType WHERE CompanyReporterEmail = %s AND CID = %s"
+            cursor.execute(check_sql, (company_reporter_email,cid))
             result = cursor.fetchone()
             if result['count'] > 0:
-                return {"error": "company Report Type Id already exists", "CompanyReportTypeID": company_report_type_id}
+                return {"error": "company Report Email already exists", "CompanyReportEmail": company_reporter_email}
             else:
-                sql = "CALL spCreateCompanyReportType(%s, %s, %s, %s)"
-                cursor.execute(sql, (company_report_type_id, cid, report_type_id, company_isdailyreportactive))
+                sql = "CALL spCreateCompanyReportType(%s, %s, %s, %s, %s, %s, %s)"
+                cursor.execute(sql, (company_reporter_email, cid, company_isdailyreportactive, company_isweeklyreportactive, company_isbiweeklyreportactive, company_ismonthlyreportactive, company_isbimonthlyreportactive))
                 connection.commit()
-                return {"message": "Company Report type created successfully"}
+                return {"message": "Company Report Email ID with data created successfully"}
 
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
@@ -1097,74 +1100,95 @@ async def company_create_report_type(company_report_type: dict = Body(...)):
     finally:
         connection.close()
 
-@app.get("/company-report-type/get/{company_report_type_id}")
-def get_report_type(company_report_type_id: str):
+@app.get("/company-report-type/getAllReportEmail/{cid}")
+def get_report_type(cid: str):
     connection = connect_to_database()
     if not connection:
         return {"error": "Failed to connect to database"}
     try:
         with connection.cursor() as cursor:
-            sql = 'CALL spGetCompanyReportType(%s)'
-            cursor.execute(sql, (company_report_type_id,))
+            sql = 'CALL spGetAllCompanyReportType(%s)'
+            cursor.execute(sql, (cid,))
+            myresult = cursor.fetchall()
+            if myresult:
+                return myresult
+            else:
+                return {"error": f"Company Report type with ID '{cid}' not found"}
+    except pymysql.MySQLError as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+@app.get("/company-report-type/get/{company_reporter_email}/{cid}")
+def get_report_type(company_reporter_email: str, cid : str):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+    try:
+        with connection.cursor() as cursor:
+            sql = 'CALL spGetCompanyReportType(%s, %s)'
+            cursor.execute(sql, (company_reporter_email,cid))
             myresult = cursor.fetchone()
             if myresult:
                 return myresult
             else:
-                return {"message": f"Report type with ID '{company_report_type_id}' not found"}
+                return {"error": f"Report type with Email '{company_reporter_email}' not found"}
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
         return {"error": str(err)}
     finally:
         connection.close()
 
-@app.put("/company-report-type/update/{company_report_type_id}")
-def update_report_type(company_report_type_id: str, company_report_type: dict = Body(...)):
+@app.put("/company-report-type/update/{company_reporteremail}/{cid}")
+def update_report_type(company_reporteremail: str, cid: str, company_report_type: dict = Body(...)):
     connection = connect_to_database()
     if not connection:
         return {"error": "Failed to connect to database"}
 
     try:
         with connection.cursor() as cursor:
-            # Extract data from request body
-            cid = company_report_type.get("CID")
-            report_type_id = company_report_type.get("ReportTypeID")
             company_isdailyreportactive = company_report_type.get("IsDailyReportActive")
+            company_isweeklyreportactive = company_report_type.get("IsWeeklyReportActive")
+            company_isbiweeklyreportactive = company_report_type.get("IsBiWeeklyReportActive")
+            company_ismonthlyreportactive = company_report_type.get("IsMonthlyReportActive")
+            company_isbimonthlyreportactive = company_report_type.get("IsBiMonthlyReportActive")
             
-            check_sql = "SELECT COUNT(*) AS count FROM CompanyReportType WHERE CompanyReportTypeID = %s"
-            cursor.execute(check_sql, (company_report_type_id,))
+            check_sql = "SELECT COUNT(*) AS count FROM CompanyReportType WHERE CompanyReporterEmail = %s AND CID = %s"
+            cursor.execute(check_sql, (company_reporteremail,cid))
             result = cursor.fetchone()
             if result['count'] > 0:
-                sql = 'CALL spUpdateCompanyReportType(%s, %s, %s, %s)'
-                cursor.execute(sql, (company_report_type_id, cid, report_type_id, company_isdailyreportactive))
+                sql = 'CALL spUpdateCompanyReportType(%s, %s, %s, %s, %s, %s, %s)'
+                cursor.execute(sql, (company_reporteremail, cid , company_isdailyreportactive, company_isweeklyreportactive, company_isbiweeklyreportactive, company_ismonthlyreportactive, company_isbimonthlyreportactive))
                 connection.commit()  # Commit changes
-                return {"message": "Company Report type updated successfully"}
+                return {"message": "Company Report Email updated successfully"}
             else:
-                 return {"error": "company Report Type Id not found", "CompanyReportTypeID": company_report_type_id}
+                 return {"error": "company Report Email Id not found", "CompanyReportEmailID": company_reporteremail}
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
         return {"error": str(err)}
     finally:
         connection.close()
 
-@app.delete("/company-report-type/delete/{company_report_type_id}")
-def delete_report_type(company_report_type_id: str):
+@app.delete("/company-report-type/delete/{company_reporteremail}/{cid}")
+def delete_report_type(company_reporteremail: str, cid: str):
     connection = connect_to_database()
     if not connection:
         return {"error": "Failed to connect to database"}
 
     try:
         with connection.cursor() as cursor:
-            check_sql = "SELECT COUNT(*) AS count FROM CompanyReportType WHERE CompanyReportTypeID = %s"
-            cursor.execute(check_sql, (company_report_type_id,))
+            check_sql = "SELECT COUNT(*) AS count FROM CompanyReportType WHERE CompanyReporterEmail = %s AND CID = %s"
+            cursor.execute(check_sql, (company_reporteremail,cid))
             result = cursor.fetchone()
             if result['count'] > 0:
-                sql = 'CALL spDeleteCompanyReportType(%s)'
-                cursor.execute(sql, (company_report_type_id,))
+                sql = 'CALL spDeleteCompanyReportType(%s, %s)'
+                cursor.execute(sql, (company_reporteremail,cid))
                 connection.commit()  # Commit changes
 
-                return {"message": f"Report type with ID '{company_report_type_id}' deleted successfully"}
+                return {"message": f"Report type with Email '{company_reporteremail}' deleted successfully"}
             else:
-                 return {"error": "company Report Type Id not found", "CompanyReportTypeID": company_report_type_id}
+                 return {"error": "company Report Type Email not found", "CompanyReportEmail": company_reporteremail}
     except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
         return {"error": str(err)}
@@ -1611,5 +1635,25 @@ async def get_employee(date_value: str):
     finally:
         connection.close()
 
+@app.get("/dailyReport/getDateRangeReport/{cid}/{startDate}/{endDate}")
+def get_daily_report_from(cid: str, startDate: str,endDate: str):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as cursor:
+            sql = 'CALL spGetCompanyDailyReportFromRange(%s, %s, %s);'
+            cursor.execute(sql, (cid,startDate,endDate))
+            myresult = cursor.fetchall()
+            if myresult:
+                return myresult
+            else:
+                return {"error": f"Report for comany with ID '{cid}' for given  not found"}
+    except pymysql.MySQLError as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
 
 handler=mangum.Mangum(app)

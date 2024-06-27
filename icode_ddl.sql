@@ -84,14 +84,17 @@ CREATE TABLE `ReportType` (
 );
 
 CREATE TABLE `CompanyReportType` (
-  `CompanyReportTypeID` char(36) PRIMARY KEY,
+  `CompanyReporterEmail` char(255),
   `CID` char(36),
-  `ReportTypeID` char(36),
-  `IsDailyReportActive` boolean
+  `IsDailyReportActive` boolean DEFAULT FALSE,
+  `IsWeeklyReportActive` boolean DEFAULT FALSE,
+  `IsBiWeeklyReportActive` boolean DEFAULT FALSE,
+  `IsMonthlyReportActive` boolean DEFAULT FALSE,
+  `IsBiMonthlyReportActive` boolean DEFAULT FALSE,
+  PRIMARY KEY (`CompanyReporterEmail`, `CID`)
 );
 
 ALTER TABLE `CompanyReportType` ADD FOREIGN KEY (`CID`) REFERENCES `Company` (`CID`);
-ALTER TABLE `CompanyReportType` ADD FOREIGN KEY (`ReportTypeID`) REFERENCES `ReportType` (`ReportTypeID`);
 
 CREATE TABLE `ReportSchedule` (
   `ReportID` char(36),
@@ -874,10 +877,13 @@ DELIMITER ;
 DELIMITER //
 
 CREATE PROCEDURE spCreateCompanyReportType(
-    IN p_CompanyReportTypeID CHAR(36),
+    IN p_CompanyReporterEmail CHAR(36),
     IN p_CID CHAR(36),
-    IN p_ReportTypeID CHAR(36),
-    IN p_IsDailyReportActive BOOLEAN
+    IN p_IsDailyReportActive BOOLEAN,
+    IN p_IsWeeklyReportActive BOOLEAN,
+    IN p_IsBiWeeklyReportActive BOOLEAN,
+    IN p_IsMonthlyReportActive BOOLEAN,
+    IN p_IsBiMonthlyReportActive BOOLEAN
 )
 BEGIN
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
@@ -887,8 +893,16 @@ BEGIN
 
     START TRANSACTION;
 
-    INSERT INTO CompanyReportType(CompanyReportTypeID, CID, ReportTypeID, IsDailyReportActive)
-    VALUES (p_CompanyReportTypeID, p_CID, p_ReportTypeID, p_IsDailyReportActive);
+    INSERT INTO CompanyReportType(CompanyReporterEmail, CID, IsDailyReportActive,
+        IsWeeklyReportActive,
+        IsBiWeeklyReportActive,
+        IsMonthlyReportActive,
+        IsBiMonthlyReportActive)
+    VALUES (p_CompanyReporterEmail, p_CID, p_IsDailyReportActive,
+        p_IsWeeklyReportActive,
+        p_IsBiWeeklyReportActive,
+        p_IsMonthlyReportActive,
+        p_IsBiMonthlyReportActive);
 
     COMMIT;
 END //
@@ -899,10 +913,22 @@ DELIMITER ;
 DELIMITER //
 
 CREATE PROCEDURE spGetCompanyReportType(
-    IN p_CompanyReportTypeID CHAR(36)
+    IN p_CompanyReporterEmail CHAR(36),
+    IN p_CID CHAR(36)
 )
 BEGIN
-    SELECT * FROM CompanyReportType WHERE CompanyReportTypeID = p_CompanyReportTypeID;
+    SELECT * FROM CompanyReportType WHERE CompanyReporterEmail = p_CompanyReporterEmail AND CID = p_CID;
+END //
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE PROCEDURE spGetAllCompanyReportType(
+    IN p_CID CHAR(36)
+)
+BEGIN
+    SELECT * FROM CompanyReportType WHERE CID = p_CID;
 END //
 
 DELIMITER ;
@@ -911,10 +937,13 @@ DELIMITER ;
 DELIMITER //
 
 CREATE PROCEDURE spUpdateCompanyReportType(
-    IN p_CompanyReportTypeID CHAR(36),
+    IN p_CompanyReporterEmail CHAR(36),
     IN p_CID CHAR(36),
-    IN p_ReportTypeID CHAR(36),
-    IN p_IsDailyReportActive BOOLEAN
+    IN p_IsDailyReportActive BOOLEAN,
+    IN p_IsWeeklyReportActive BOOLEAN,
+    IN p_IsBiWeeklyReportActive BOOLEAN,
+    IN p_IsMonthlyReportActive BOOLEAN,
+    IN p_IsBiMonthlyReportActive BOOLEAN
 )
 BEGIN
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
@@ -925,10 +954,12 @@ BEGIN
     START TRANSACTION;
 
     UPDATE CompanyReportType
-    SET CID = p_CID,
-        ReportTypeID = p_ReportTypeID,
-        IsDailyReportActive = p_IsDailyReportActive
-    WHERE CompanyReportTypeID = p_CompanyReportTypeID;
+    SET IsDailyReportActive = p_IsDailyReportActive,
+        IsWeeklyReportActive = p_IsWeeklyReportActive,
+        IsBiWeeklyReportActive = p_IsBiWeeklyReportActive,
+        IsMonthlyReportActive = p_IsMonthlyReportActive,
+        IsBiMonthlyReportActive = p_IsBiMonthlyReportActive
+    WHERE CompanyReporterEmail = p_CompanyReporterEmail AND CID = p_CID;
 
     COMMIT;
 END //
@@ -939,7 +970,8 @@ DELIMITER ;
 DELIMITER //
 
 CREATE PROCEDURE spDeleteCompanyReportType(
-    IN p_CompanyReportTypeID CHAR(36)
+    IN p_CompanyReporterEmail CHAR(36),
+    IN p_CID CHAR(36)
 )
 BEGIN
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
@@ -949,7 +981,7 @@ BEGIN
 
     START TRANSACTION;
 
-    DELETE FROM CompanyReportType WHERE CompanyReportTypeID = p_CompanyReportTypeID;
+    DELETE FROM CompanyReportType WHERE CompanyReporterEmail = p_CompanyReporterEmail AND CID = p_CID;
 
     COMMIT;
 END //
@@ -1307,6 +1339,35 @@ BEGIN
         Employee.CID = DailyReportTable.CID 
     WHERE 
         DailyReportTable.Date = reportDate;
+END //
+
+DELIMITER ;
+
+StoreProcedure 
+
+
+DELIMITER //
+
+CREATE PROCEDURE spGetCompanyDailyReportFromRange(IN cid char(36), IN startDate DATE, IN endDate Date)
+BEGIN
+    SELECT 
+        CONCAT(Employee.FName, " ", Employee.LName) AS "Name", 
+        Employee.PIN AS "Pin", 
+        DailyReportTable.TypeID AS "Type", 
+        DailyReportTable.CheckInTime  AS "CheckInTime", 
+        DailyReportTable.CheckOutTime  AS "CheckOutTime",  
+        DailyReportTable.TimeWorked  AS "TimeWorked"
+    FROM 
+        Employee
+    JOIN 
+        DailyReportTable 
+    ON 
+        Employee.EmpID = DailyReportTable.EmpID 
+    AND 
+        Employee.CID = DailyReportTable.CID 
+    WHERE 
+    
+    Date >= startDate AND Date < endDate + INTERVAL 1 DAY AND CID = cid;
 END //
 
 DELIMITER ;
