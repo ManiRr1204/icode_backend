@@ -1328,7 +1328,9 @@ BEGIN
         DailyReportTable.TypeID AS "Type", 
         DailyReportTable.CheckInTime  AS "CheckInTime", 
         DailyReportTable.CheckOutTime  AS "CheckOutTime",  
-        DailyReportTable.TimeWorked  AS "TimeWorked"
+        DailyReportTable.TimeWorked  AS "TimeWorked",
+        Employee.EmpID AS "EmpID",
+        Employee.CID AS "CID"
     FROM 
         Employee
     JOIN 
@@ -1343,7 +1345,6 @@ END //
 
 DELIMITER ;
 
-StoreProcedure 
 
 
 DELIMITER //
