@@ -1656,4 +1656,129 @@ def get_daily_report_from(cid: str, startDate: str,endDate: str):
     finally:
         connection.close()
 
+
+@app.get("/device/getAll")
+def get_all_devices():
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as cursor:
+            sql = 'CALL spGetAllDevices();'
+            cursor.execute(sql)
+            myresult = cursor.fetchall()
+            if myresult:
+                return myresult
+            else:
+                return {"error": f"No devices found !"}
+    except pymysql.MySQLError as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+
+# POST request to create a device
+@app.post("/device/create")
+async def create_device(device: dict = Body(...)):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as cursor:
+            # Extract data from request body
+            device_id = device.get("DeviceID")  # Assuming "deviceID" is the key in the request body
+            cid = device.get("CID")
+            device_name = device.get("DeviceName")
+            access_key = device.get("AccessKey")
+            access_key_created_datetime = device.get("AccessKeyCreatedDateTime")
+
+            # Execute the stored procedure
+            sql = "CALL spCreateDevice(%s, %s, %s, %s, %s)"
+            cursor.execute(sql, (device_id, cid, device_name, access_key, access_key_created_datetime))
+            connection.commit()
+
+            return {"message": "Device created successfully"}
+
+    except pymysql.MySQLError as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+
+
+
+# DELETE request to delete a Device
+@app.delete("/device/delete/{access_key}/{cid}")
+async def delete_device(access_key: str, cid: str):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as cursor:
+
+            # Check if device is already exists
+            check_sql = "SELECT COUNT(*) AS count FROM Device WHERE AccessKey = %s AND CID = %s"
+            cursor.execute(check_sql, (access_key, cid))
+            result = cursor.fetchone()
+        
+            if result['count'] > 0:
+                sql = "CALL spDeleteDevice(%s, %s);"  # Using positional parameter here
+                cursor.execute(sql, (access_key, cid))
+                connection.commit()  # Commit changes
+
+                return {"message": f"Device with Access Key '{access_key}' deleted successfully"}
+            else:
+                return {"error": "Device not found"}
+
+    except pymysql.MySQLError as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+# Endpoint to update a daily report
+@app.put("/device/update/{access_key}/{cid}")
+async def update_daily_report(access_key: str,cid: str, device: dict = Body(...)):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as cursor:
+            
+            device_id = device.get("DeviceID")
+            device_name = device.get("DeviceName")
+            access_key_created_datetime = device.get("AccessKeyCreatedDateTime")
+
+
+            check_sql = "SELECT COUNT(*) AS count FROM Device WHERE AccessKey = %s AND CID = %s"
+            cursor.execute(check_sql,(access_key, cid))
+            result = cursor.fetchone()
+            if result['count'] > 0:
+                sql = """
+                    CALL spUpdateDevice(
+                        %s, %s, %s, %s, %s
+                    );
+                """
+                cursor.execute(sql, (
+                    device_id, cid, device_name, access_key, access_key_created_datetime
+                ))
+                connection.commit() 
+
+                return {"message": "Device updated successfully"}
+            else:
+                return {"error": "Access key not found", "AccessKey": access_key}
+
+    except pymysql.MySQLError as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+
 handler=mangum.Mangum(app)

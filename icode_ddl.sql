@@ -1328,6 +1328,8 @@ BEGIN
         DailyReportTable.TypeID AS "Type", 
         DailyReportTable.CheckInTime  AS "CheckInTime", 
         DailyReportTable.CheckOutTime  AS "CheckOutTime",  
+        DailyReportTable.CheckInSnap  AS "CheckInSnap", 
+        DailyReportTable.CheckOutSnap  AS "CheckOutSnap",  
         DailyReportTable.TimeWorked  AS "TimeWorked",
         Employee.EmpID AS "EmpID",
         Employee.CID AS "CID"
