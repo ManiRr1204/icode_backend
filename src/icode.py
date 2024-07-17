@@ -1635,6 +1635,7 @@ async def get_employee(date_value: str):
     finally:
         connection.close()
 
+
 @app.get("/dailyReport/getDateRangeReport/{cid}/{startDate}/{endDate}")
 def get_daily_report_from(cid: str, startDate: str,endDate: str):
     connection = connect_to_database()
@@ -1656,17 +1657,39 @@ def get_daily_report_from(cid: str, startDate: str,endDate: str):
     finally:
         connection.close()
 
+@app.get("/dailyreport/get/{emp_id}/{date_value}")
+async def get_employee_report(emp_id : str , date_value: str):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
 
-@app.get("/device/getAll")
-def get_all_devices():
+    try:
+        with connection.cursor() as mycursor:
+            sql = "CALL spGetEmployeeDailyBasisReport(%s, %s);"
+            mycursor.execute(sql, (emp_id, date_value,))  # Enclose emp_id in a tuple
+            daily_report = mycursor.fetchall()
+            if daily_report:
+                return daily_report
+            else:
+                return {"error": f"Daily report '{date_value}' not found"}
+
+    except pymysql.Error as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+
+@app.get("/device/getAll/{cid}")
+def get_all_devices(cid: str):
     connection = connect_to_database()
     if not connection:
         return {"error": "Failed to connect to database"}
 
     try:
         with connection.cursor() as cursor:
-            sql = 'CALL spGetAllDevices();'
-            cursor.execute(sql)
+            sql = 'CALL spGetAllDevices(%s);'
+            cursor.execute(sql, (cid))
             myresult = cursor.fetchall()
             if myresult:
                 return myresult
