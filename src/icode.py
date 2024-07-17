@@ -1702,6 +1702,28 @@ def get_all_devices(cid: str):
         connection.close()
 
 
+@app.get("/device/getAllDevices")
+def get_all_devices_wobased_on_cid():
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as cursor:
+            sql = 'CALL spGetAllDevicesWithoutBasedOnCID();'
+            cursor.execute(sql)
+            myresult = cursor.fetchall()
+            if myresult:
+                return myresult
+            else:
+                return {"error": f"No devices found !"}
+    except pymysql.MySQLError as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+
 # POST request to create a device
 @app.post("/device/create")
 async def create_device(device: dict = Body(...)):
