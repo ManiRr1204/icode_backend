@@ -10,6 +10,8 @@ CREATE TABLE `Company` (
   `Password` varchar(255),
   PRIMARY KEY (`CID`, `UserName`)
 );
+ALTER TABLE Company
+ADD ReportType VARCHAR(255) AFTER CAddress;
 
 CREATE TABLE `Customer` (
   `CustomerID` char(36) PRIMARY KEY,
@@ -158,11 +160,12 @@ CREATE PROCEDURE spCreateCompany(
   IN p_clogo BLOB,
   IN p_caddress VARCHAR(255),
   IN p_username VARCHAR(255),
-  IN p_password VARCHAR(255)
+  IN p_password VARCHAR(255),
+  IN p_reportType VARCHAR(255)
 )
 BEGIN
-    INSERT INTO Company (CID, CName, CLogo, CAddress, UserName, Password)
-  VALUES (p_cid, p_cname, p_clogo, p_caddress, p_username, p_password);
+    INSERT INTO Company (CID, CName, CLogo, CAddress, UserName, Password, ReportType)
+  VALUES (p_cid, p_cname, p_clogo, p_caddress, p_username, p_password, p_reportType);
 END //
 
 DELIMITER ;
@@ -206,7 +209,8 @@ CREATE PROCEDURE spUpdateCompany (
   IN p_clogo BLOB,
   IN p_caddress VARCHAR(255),
   IN p_username VARCHAR(255),
-  IN p_password VARCHAR(255)
+  IN p_password VARCHAR(255),
+  IN p_reportType VARCHAR(255)
 )
 BEGIN
   UPDATE Company
@@ -214,8 +218,24 @@ BEGIN
       CLogo = p_clogo,
       CAddress = p_caddress,
       UserName = p_username,
-      Password = p_password
+      Password = p_password,
+      ReportType = p_reportType
   WHERE CID = p_cid;
+END//
+
+DELIMITER ;
+
+
+DELIMITER //
+
+CREATE PROCEDURE spUpdateCompanyReport(
+    IN p_company_id CHAR(36),
+    IN p_report_type VARCHAR(255)
+)
+BEGIN
+    UPDATE Company
+    SET ReportType = p_report_type
+    WHERE CID = p_company_id;
 END//
 
 DELIMITER ;
@@ -1318,6 +1338,7 @@ END //
 DELIMITER :
 
 
+
 DELIMITER //
 
 CREATE PROCEDURE spGetEmployeeDailyReport(IN reportDate DATE)
@@ -1349,6 +1370,7 @@ DELIMITER ;
 
 
 
+
 DELIMITER //
 
 CREATE PROCEDURE spGetCompanyDailyReportFromRange(IN cid char(36), IN startDate DATE, IN endDate Date)
@@ -1374,3 +1396,137 @@ BEGIN
 END //
 
 DELIMITER ;
+
+
+
+
+
+
+
+
+
+SET SQL_SAFE_UPDATES = 0; 
+
+CREATE TABLE `Device` (
+	`DeviceID` char(36),
+    `CID` char(36),
+    `DeviceName` char(36),
+    `AccessKey` char(36),
+	`AccessKeyGeneratedTime` datetime,
+    PRIMARY KEY (`CID`, `AccessKey`)
+    );
+    
+
+ALTER TABLE `Device` ADD FOREIGN KEY (`CID`) REFERENCES `Company` (`CID`);
+
+
+DELIMITER //
+
+CREATE PROCEDURE spGetAllDevices(
+IN p_cid CHAR(36)
+)
+BEGIN
+    SELECT * FROM Device WHERE CID = p_cid;
+END //
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE PROCEDURE spDeleteDevice(
+    IN p_accessKey CHAR(36),
+    IN p_cid CHAR(36)
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+    END;
+
+    START TRANSACTION;
+
+    DELETE FROM Device WHERE AccessKey = p_accessKey AND CID = p_cid;
+
+    COMMIT;
+END //
+
+DELIMITER ;
+
+
+DELIMITER //
+
+CREATE PROCEDURE spCreateDevice(
+    IN p_deviceID CHAR(36),
+    IN p_CID CHAR(36),
+    IN p_deviceName VARCHAR(255),
+    IN p_accessKey VARCHAR(255),
+    IN p_accessKeyCreatedDateTime DATETIME 
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+    END;
+
+    START TRANSACTION;
+
+    INSERT INTO Device (DeviceID, CID, DeviceName, AccessKey, AccessKeyGeneratedTime)
+    VALUES (p_deviceID, p_CID, p_deviceName, p_accessKey, p_accessKeyCreatedDateTime);
+
+    COMMIT;
+END //
+
+DELIMITER ;
+
+
+DELIMITER //
+
+CREATE PROCEDURE spUpdateDevice(
+    IN p_deviceID CHAR(36),
+    IN p_CID CHAR(36),
+    IN p_deviceName VARCHAR(255),
+    IN p_accessKey VARCHAR(255),
+    IN p_accessKeyCreatedDateTime DATETIME 
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+    END;
+
+    START TRANSACTION;
+
+    UPDATE Device
+    SET 
+        DeviceID = p_deviceID,
+        DeviceName = p_deviceName,
+        AccessKeyGeneratedTime = p_accessKeyCreatedDateTime
+    WHERE 
+        AccessKey = p_accessKey AND
+        CID = p_CID;
+END //
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE PROCEDURE `spGetEmployeeDailyBasisReport`(
+IN p_eid CHAR(36),
+IN reportDate DATE)
+BEGIN
+    SELECT  * FROM  DailyReportTable 
+
+    WHERE EmpID = p_eid AND Date = reportDate;
+END //
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE PROCEDURE `spGetAllDevicesWithoutBasedOnCID`()
+BEGIN
+    SELECT * FROM Device ;
+END //
+
+DELIMITER ;
+

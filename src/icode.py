@@ -105,6 +105,7 @@ async def create_company(company: dict = Body(...)):
             caddress = company.get("CAddress")
             username = company.get("UserName")
             password = company.get("Password")
+            reportType = company.get("ReportType")
 
             # Check if username is already exists
             check_sql = "SELECT COUNT(*) AS count FROM Company WHERE UserName = %s"
@@ -114,8 +115,8 @@ async def create_company(company: dict = Body(...)):
                 return {"error": "UserName already exists"}
 
             else:
-                sql = "CALL spCreateCompany(%s, %s, %s, %s, %s, %s)"
-                cursor.execute(sql, (cid, cname, clogo, caddress, username, password))
+                sql = "CALL spCreateCompany(%s, %s, %s, %s, %s, %s, %s)"
+                cursor.execute(sql, (cid, cname, clogo, caddress, username, password, reportType))
                 connection.commit()
 
                 return {"message": "Company created successfully", "CID": cid, "UserName": username}
@@ -171,6 +172,7 @@ async def update_company(company_id: str, company: dict = Body(...)):
             caddress = company.get("CAddress")
             username = company.get("UserName")
             password = company.get("Password")
+            reportType = company.get("ReportType")
             
             
             check_sql = "SELECT COUNT(*) AS count FROM Company WHERE UserName = %s"
@@ -183,8 +185,8 @@ async def update_company(company_id: str, company: dict = Body(...)):
                 result_2 = cursor.fetchone()
 
                 if result_2['count'] > 0:
-                    sql = "CALL spUpdateCompany(%s, %s, %s, %s, %s, %s)"
-                    cursor.execute(sql, (company_id, cname, clogo, caddress, username, password))
+                    sql = "CALL spUpdateCompany(%s, %s, %s, %s, %s, %s, %s)"
+                    cursor.execute(sql, (company_id, cname, clogo, caddress, username, password, reportType))
                     connection.commit()
                     return {"message": "Company updated successfully", "CID": company_id, "UserName": username}
                 
@@ -193,8 +195,8 @@ async def update_company(company_id: str, company: dict = Body(...)):
 
             else:
 
-                sql = "CALL spUpdateCompany(%s, %s, %s, %s, %s, %s)"
-                cursor.execute(sql, (company_id, cname, clogo, caddress, username, password))
+                sql = "CALL spUpdateCompany(%s, %s, %s, %s, %s, %s, %s)"
+                cursor.execute(sql, (company_id, cname, clogo, caddress, username, password, reportType))
                 connection.commit()
 
                 return {"message": "Company updated successfully", "CID": company_id, "UserName": username}
@@ -205,6 +207,24 @@ async def update_company(company_id: str, company: dict = Body(...)):
     finally:
         connection.close()
 
+@app.put("/company/update/report_type/{company_id}")
+async def update_report_type(company_id: str, report_type: str = Body(...)):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as cursor:
+            # Call the stored procedure to update the ReportType
+            sql = "CALL spUpdateReportType(%s, %s)"
+            cursor.execute(sql, (company_id, report_type))
+            connection.commit()
+            return {"message": "Company Report type updated successfully", "CID": company_id, "ReportType": report_type}
+    except pymysql.Error as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
 
 @app.get("/customer/get/{customer_id}")
 async def get_customer_by_id(customer_id: str):
