@@ -1530,3 +1530,107 @@ END //
 
 DELIMITER ;
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+CREATE TABLE `Device` (
+  `TimeZone` char(36) DEFAULT NULL,
+  `DeviceID` char(36) DEFAULT NULL,
+  `CID` char(36) NOT NULL,
+  `DeviceName` char(36) DEFAULT NULL,
+  `AccessKey` char(36) NOT NULL,
+  `AccessKeyGeneratedTime` datetime DEFAULT NULL,
+  PRIMARY KEY (`CID`,`AccessKey`),
+  CONSTRAINT `Device` FOREIGN KEY (`CID`) REFERENCES `Company` (`CID`)
+)
+
+DELIMITER //
+
+CREATE PROCEDURE `spCreateDevice`(
+	IN p_timezone CHAR(36),
+    IN p_deviceID CHAR(36),
+    IN p_CID CHAR(36),
+    IN p_deviceName VARCHAR(255),
+    IN p_accessKey VARCHAR(255),
+    IN p_accessKeyCreatedDateTime DATETIME 
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+    END;
+
+    START TRANSACTION;
+
+    INSERT INTO Device (TimeZone, DeviceID, CID, DeviceName, AccessKey, AccessKeyGeneratedTime)
+    VALUES (p_timezone, p_deviceID, p_CID, p_deviceName, p_accessKey, p_accessKeyCreatedDateTime);
+
+    COMMIT;
+END //
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE PROCEDURE `spDeleteDevice`(
+    IN p_accessKey CHAR(36),
+    IN p_cid CHAR(36)
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+    END;
+
+    START TRANSACTION;
+
+    DELETE FROM Device WHERE AccessKey = p_accessKey AND CID = p_cid;
+
+    COMMIT;
+END //
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE PROCEDURE `spUpdateDevice`(
+	IN p_timezone CHAR(36),
+    IN p_deviceID CHAR(36),
+    IN p_CID CHAR(36),
+    IN p_deviceName VARCHAR(255),
+    IN p_accessKey VARCHAR(255),
+    IN p_accessKeyCreatedDateTime DATETIME 
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+    END;
+
+    START TRANSACTION;
+
+    UPDATE Device
+    SET 
+		TimeZone = p_timezone,
+        DeviceID = p_deviceID,
+        DeviceName = p_deviceName,
+        AccessKeyGeneratedTime = p_accessKeyCreatedDateTime
+    WHERE 
+        AccessKey = p_accessKey AND
+        CID = p_CID;
+END //
+
+DELIMITER ;

@@ -1754,6 +1754,7 @@ async def create_device(device: dict = Body(...)):
     try:
         with connection.cursor() as cursor:
             # Extract data from request body
+            timezone = device.get("TimeZone") 
             device_id = device.get("DeviceID")  # Assuming "deviceID" is the key in the request body
             cid = device.get("CID")
             device_name = device.get("DeviceName")
@@ -1761,8 +1762,8 @@ async def create_device(device: dict = Body(...)):
             access_key_created_datetime = device.get("AccessKeyCreatedDateTime")
 
             # Execute the stored procedure
-            sql = "CALL spCreateDevice(%s, %s, %s, %s, %s)"
-            cursor.execute(sql, (device_id, cid, device_name, access_key, access_key_created_datetime))
+            sql = "CALL spCreateDevice(%s, %s, %s, %s, %s, %s)"
+            cursor.execute(sql, (timezone, device_id, cid, device_name, access_key, access_key_created_datetime))
             connection.commit()
 
             return {"message": "Device created successfully"}
@@ -1815,7 +1816,7 @@ async def update_daily_report(access_key: str,cid: str, device: dict = Body(...)
 
     try:
         with connection.cursor() as cursor:
-            
+            timezone = device.get("TimeZone") 
             device_id = device.get("DeviceID")
             device_name = device.get("DeviceName")
             access_key_created_datetime = device.get("AccessKeyCreatedDateTime")
@@ -1827,11 +1828,11 @@ async def update_daily_report(access_key: str,cid: str, device: dict = Body(...)
             if result['count'] > 0:
                 sql = """
                     CALL spUpdateDevice(
-                        %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, %s
                     );
                 """
                 cursor.execute(sql, (
-                    device_id, cid, device_name, access_key, access_key_created_datetime
+                    timezone, device_id, cid, device_name, access_key, access_key_created_datetime
                 ))
                 connection.commit() 
 
