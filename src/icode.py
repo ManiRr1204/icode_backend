@@ -504,6 +504,29 @@ async def get__all_employee(cid : str):
     finally:
         connection.close()
 
+@app.get("/employee/getcount/{cid}")
+async def get__all_employee(cid : str):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as mycursor:
+            sql = "CALL spGetEmployeeCount(%s);"
+            mycursor.execute(sql, (cid,)) 
+            employee = mycursor.fetchall()
+
+            if employee:
+                return employee
+            else:
+                return {"error": f"Company with ID '{cid}' not found"}
+
+    except pymysql.Error as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
 
 
 @app.get("/employee/get/{emp_id}")
@@ -1760,10 +1783,11 @@ async def create_device(device: dict = Body(...)):
             device_name = device.get("DeviceName")
             access_key = device.get("AccessKey")
             access_key_created_datetime = device.get("AccessKeyCreatedDateTime")
+            is_active = True
 
             # Execute the stored procedure
-            sql = "CALL spCreateDevice(%s, %s, %s, %s, %s, %s)"
-            cursor.execute(sql, (timezone, device_id, cid, device_name, access_key, access_key_created_datetime))
+            sql = "CALL spCreateDevice(%s, %s, %s, %s, %s, %s, %s)"
+            cursor.execute(sql, (timezone, device_id, cid, device_name, access_key, access_key_created_datetime,is_active))
             connection.commit()
 
             return {"message": "Device created successfully"}
@@ -1820,7 +1844,7 @@ async def update_daily_report(access_key: str,cid: str, device: dict = Body(...)
             device_id = device.get("DeviceID")
             device_name = device.get("DeviceName")
             access_key_created_datetime = device.get("AccessKeyCreatedDateTime")
-
+            is_active = True
 
             check_sql = "SELECT COUNT(*) AS count FROM Device WHERE AccessKey = %s AND CID = %s"
             cursor.execute(check_sql,(access_key, cid))
@@ -1828,11 +1852,11 @@ async def update_daily_report(access_key: str,cid: str, device: dict = Body(...)
             if result['count'] > 0:
                 sql = """
                     CALL spUpdateDevice(
-                        %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, %s, %s
                     );
                 """
                 cursor.execute(sql, (
-                    timezone, device_id, cid, device_name, access_key, access_key_created_datetime
+                    timezone, device_id, cid, device_name, access_key, access_key_created_datetime, is_active
                 ))
                 connection.commit() 
 
