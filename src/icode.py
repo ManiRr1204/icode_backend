@@ -1,23 +1,30 @@
 from datetime import date
-from fastapi import FastAPI, Body
+from fastapi import FastAPI, HTTPException, Body, Request
 import mangum
 import pymysql
+import stripe
+from pydantic import BaseModel
+from fastapi.responses import JSONResponse
 
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
 app.add_middleware(
-    CORSMiddleware, allow_origins=["*"], allow_credentials = True, allow_methods=["*"], allow_headers=["*"]
+    CORSMiddleware, allow_origins=["https://arjavatech.github.io", "http://127.0.0.1:5504", "https://arunkavitha1982.github.io/icode","*"], allow_credentials = True, allow_methods=["*"], allow_headers=["https://arjavatech.github.io", "http://127.0.0.1:5504", "https://arunkavitha1982.github.io/icode","*"]
 )
+
+# Initialize Stripe with your secret key
+stripe.api_key = 'sk_test_51OB8JlIPoM7JHRT2Dz4UeKOU5Snexc9lFpmu2Hp6d0PfCZKCwqWE4NanolwHC5fSd5hbLwsnpHAEJphTByN5c93w00pEpp1vJt'
+
 
 def connect_to_database():
     try:
         connection = pymysql.connect(
-            host="mydb.cxms2oikutcu.us-west-2.rds.amazonaws.com",
+            host="icodetestdb.cxms2oikutcu.us-west-2.rds.amazonaws.com",
             user="admin",
-            password="databasepass",
-            database="icode",
+            password="AWSpass01#",
+            database="icodetestdb",
             cursorclass=pymysql.cursors.DictCursor 
         )
         return connection
@@ -1802,7 +1809,7 @@ async def create_device(device: dict = Body(...)):
 
 
 # DELETE request to delete a Device
-@app.delete("/device/delete/{access_key}/{cid}")
+@app.put("/device/delete/{access_key}/{cid}")
 async def delete_device(access_key: str, cid: str):
     connection = connect_to_database()
     if not connection:
@@ -1869,6 +1876,61 @@ async def update_daily_report(access_key: str,cid: str, device: dict = Body(...)
         return {"error": str(err)}
     finally:
         connection.close()
+
+@app.put("/admin-report-type/update/{cid}")
+def update_report_type(cid: str, report_type: dict = Body(...)):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as cursor:
+            # Extract data from request body
+            report_type = report_type.get("ReportType")
+
+            sql = 'CALL spUpdateAdminReportType(%s, %s)'
+            cursor.execute(sql, (cid,report_type))
+            connection.commit()
+
+            return {"message": "Report type updated successfully"}
+
+    except pymysql.MySQLError as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+class CheckoutRequest(BaseModel):
+    url: str
+    productName : str
+    amount: int
+
+@app.post('/create-checkout-session')
+async def create_checkout_session(request: CheckoutRequest):
+    try:
+        print('Creating checkout session')
+        # Create a new Stripe Checkout session
+        session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'usd',
+                    'product_data': {
+                        'name': request.productName,
+                    },
+                    'unit_amount': request.amount,
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            success_url=f"{request.url}/success.html",
+            cancel_url=f"{request.url}/singup.html", 
+        )
+        print('Checkout session created:', session.id)
+        return JSONResponse(content={'id': session.id})
+    except Exception as e:
+        print('Error creating checkout session:', str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 handler=mangum.Mangum(app)

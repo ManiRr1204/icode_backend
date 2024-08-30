@@ -1721,6 +1721,18 @@ CREATE TABLE `ContactUS` (
 
 ALTER TABLE `ContactUS` ADD FOREIGN KEY (`CID`) REFERENCES `Company` (`CID`);
 
+CREATE TABLE `Device` (
+  `TimeZone` char(36) DEFAULT NULL,
+  `DeviceID` char(36) DEFAULT NULL,
+  `CID` char(36) NOT NULL,
+  `DeviceName` char(36) DEFAULT NULL,
+  `AccessKey` char(36) NOT NULL,
+  `AccessKeyGeneratedTime` datetime DEFAULT NULL,
+  `IsActive` boolean,
+  PRIMARY KEY (`CID`,`AccessKey`),
+  CONSTRAINT `Device` FOREIGN KEY (`CID`) REFERENCES `Company` (`CID`)
+)
+
 CREATE TABLE `ReportRecipients` (
   `CheckinID` char(36) PRIMARY KEY,
   `CID` char(36),
@@ -1828,6 +1840,20 @@ BEGIN
     INSERT INTO Company (CID, CName, CLogo, CAddress, UserName, Password, ReportType)
   VALUES (p_cid, p_cname, p_clogo, p_caddress, p_username, p_password, p_reportType);
 END //
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE PROCEDURE spUpdateAdminReportType(
+  IN p_cid CHAR(36),
+  IN p_reportType VARCHAR(255)
+)
+BEGIN
+  UPDATE Company
+  SET ReportType = p_reportType
+  WHERE CID = p_cid;
+END//
 
 DELIMITER ;
 
@@ -2908,7 +2934,7 @@ CREATE PROCEDURE spCreateDailyReport(
     IN p_CheckInTime DATETIME,
     IN p_CheckOutSnap BLOB,
     IN p_CheckOutTime DATETIME,
-    IN p_TimeWorked DECIMAL(10, 2),
+    IN p_TimeWorked VARCHAR(255),
     IN p_Date DATE
 )
 BEGIN
@@ -2993,7 +3019,7 @@ CREATE PROCEDURE spUpdateDailyReport(
     IN p_CheckInTime DATETIME,
     IN p_CheckOutSnap BLOB,
     IN p_CheckOutTime DATETIME,
-    IN p_TimeWorked DECIMAL(10, 2)
+    IN p_TimeWorked VARCHAR(255)
 )
 BEGIN
     UPDATE DailyReportTable
