@@ -559,43 +559,340 @@ async def get_employee(emp_id: str):
         connection.close()
 
 
-# POST request to create a employee
 @app.post("/employee/create")
-async def create_employee(employee: dict = Body(...)):
+async def create_employee():
     connection = connect_to_database()
     if not connection:
-        return {"error": "Failed to connect to database"}
+        raise HTTPException(status_code=500, detail="Failed to connect to database")
 
+    responses = []
+    
     try:
         with connection.cursor() as cursor:
-            # Extract data from request body
-            empid = employee.get("EmpID")
-            cid = employee.get("CID")
-            fname = employee.get("FName")
-            lname = employee.get("LName")
-            isactive =  employee.get("IsActive")
-            phoneno = employee.get("PhoneNumber")
-            pin = employee.get("Pin")
-            
-            # Check if username is already exists
-            check_sql = "SELECT COUNT(*) AS count FROM Employee WHERE EmpID = %s"
-            cursor.execute(check_sql, (empid,))
-            result = cursor.fetchone()
-            if result['count'] > 0:
-                return {"error": "Employee already exists"}
-            else:
+            employees = [
+    {
+        "Pin": "9911",
+        "FName": "Sabari",
+        "LName": "Sabari",
+        "PhoneNumber": "(415) 915-9911",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852ee9b9",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "1180",
+        "FName": "Tanay",
+        "LName": "Tanay",
+        "PhoneNumber": "(415) 915-1180",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852ee9e9",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "1360",
+        "FName": "Archis",
+        "LName": "Archis",
+        "PhoneNumber": "(415) 915-1360",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852ee9f9",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "1418",
+        "FName": "Varun",
+        "LName": "Varun",
+        "PhoneNumber": "(415) 915-1418",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852ee9fa",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "1669",
+        "FName": "Balaji",
+        "LName": "Balaji",
+        "PhoneNumber": "(415) 915-1669",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852ee9fb",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "1738",
+        "FName": "Nachi",
+        "LName": "Nachi",
+        "PhoneNumber": "(415) 915-1738",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852ee9fc",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "1900",
+        "FName": "Palani",
+        "LName": "Palani",
+        "PhoneNumber": "(415) 915-1900",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852ee9fd",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "3069",
+        "FName": "Sri",
+        "LName": "Sri",
+        "PhoneNumber": "(415) 915-3069",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852ee9fe",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "3217",
+        "FName": "Rhett",
+        "LName": "Rhett",
+        "PhoneNumber": "(415) 915-3217",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852ee9ff",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "3753",
+        "FName": "Arohee",
+        "LName": "Arohee",
+        "PhoneNumber": "(415) 915-3753",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852eea00",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "4118",
+        "FName": "Ayush",
+        "LName": "Ayush",
+        "PhoneNumber": "(415) 915-4118",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852eea01",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "4357",
+        "FName": "Don Lee",
+        "LName": "Don Lee",
+        "PhoneNumber": "(415) 915-4357",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852eea02",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "4432",
+        "FName": "Abhi",
+        "LName": "Abhi",
+        "PhoneNumber": "(415) 915-4432",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852eea03",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "5257",
+        "FName": "Shruthi",
+        "LName": "Shruthi",
+        "PhoneNumber": "(415) 915-5257",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852eea04",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "5470",
+        "FName": "Angelina",
+        "LName": "Angelina",
+        "PhoneNumber": "(415) 915-5470",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852eea05",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "5781",
+        "FName": "Archis",
+        "LName": "Archis",
+        "PhoneNumber": "(415) 915-5781",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852eea06",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "5959",
+        "FName": "Sacchin",
+        "LName": "Sacchin",
+        "PhoneNumber": "(415) 915-5959",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852eea07",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "6012",
+        "FName": "Bowen",
+        "LName": "Bowen",
+        "PhoneNumber": "(415) 915-6012",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852eea08",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "6080",
+        "FName": "Aarush",
+        "LName": "Aarush",
+        "PhoneNumber": "(415) 915-6080",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852eea09",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "6794",
+        "FName": "Mamatha",
+        "LName": "Mamatha",
+        "PhoneNumber": "(415) 915-6794",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852eea10",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "7045",
+        "FName": "Ananya",
+        "LName": "Ananya",
+        "PhoneNumber": "(415) 915-7045",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852eea11",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "7048",
+        "FName": "Pranav",
+        "LName": "Pranav",
+        "PhoneNumber": "(415) 915-7048",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852eea12",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "7191",
+        "FName": "Vincent Shao",
+        "LName": "Vincent Shao",
+        "PhoneNumber": "(415) 915-7191",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852eea13",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "7220",
+        "FName": "Aakarsh",
+        "LName": "Aakarsh",
+        "PhoneNumber": "(415) 915-7220",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852eea14",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "7587",
+        "FName": "Megha",
+        "LName": "Megha",
+        "PhoneNumber": "(415) 915-7587",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852eea15",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "8375",
+        "FName": "Simran",
+        "LName": "Simran",
+        "PhoneNumber": "(415) 915-8375",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852eea16",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "8661",
+        "FName": "Nikitha",
+        "LName": "Nikitha",
+        "IsActive":True,
+        "PhoneNumber": "(415) 913-8661",
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852eea17",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "9052",
+        "FName": "Rahoul",
+        "LName": "Rahoul",
+        "PhoneNumber": "(415) 913-9052",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852eea18",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "9637",
+        "FName": "Vinaya",
+        "LName": "Vinaya",
+        "PhoneNumber": "(415) 913-9637",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852eea19",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "9719",
+        "FName": "Siva",
+        "LName": "Siva",
+        "PhoneNumber": "(415) 913-9719",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852eea20",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "9935",
+        "FName": "Sohan",
+        "LName": "Sohan",
+        "PhoneNumber": "(415) 913-9935",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852eea21",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    },
+    {
+        "Pin": "9955",
+        "FName": "Advath",
+        "LName": "Advath",
+        "PhoneNumber": "(415) 915-9955",
+        "IsActive":True,
+        "CID": "68f9bafc-2390-11ef-82b6-02d3852eea22",
+        "EmpID": "9884a2eb-70ee-4a3a-b122-d9ce95d4a256"
+    }
+]
+            for employee in employees:
+                # Extract data from request body
+                empid = employee.get("EmpID")
+                cid = employee.get("CID")
+                fname = employee.get("FName")
+                lname = employee.get("LName")
+                isactive = employee.get("IsActive")
+                phoneno = employee.get("PhoneNumber")
+                pin = employee.get("Pin")
                 
-                sql = "CALL spCreateEmployee(%s, %s, %s, %s, %s, %s, %s);"
-                cursor.execute(sql, (empid, cid, fname, lname, isactive, phoneno,pin))
-                connection.commit()
-
-                return {"message": "Employee created successfully", "EmpID": empid}
+                if not empid or not cid or not fname or not lname or isactive is None or not phoneno or not pin:
+                    responses.append({"error": "Missing required fields", "EmpID": empid})
+                    continue
+                
+                # Check if employee already exists
+                check_sql = "SELECT COUNT(*) AS count FROM Employee WHERE EmpID = %s"
+                cursor.execute(check_sql, (empid,))
+                result = cursor.fetchone()
+                
+                if result['count'] > 0:
+                    responses.append({"error": "Employee already exists", "EmpID": empid})
+                else:
+                    sql = "CALL spCreateEmployee(%s, %s, %s, %s, %s, %s, %s);"
+                    cursor.execute(sql, (empid, cid, fname, lname, isactive, phoneno, pin))
+                    connection.commit()
+                    responses.append({"message": "Employee created successfully", "EmpID": empid})
 
     except pymysql.Error as err:
         print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)}
+        raise HTTPException(status_code=500, detail=str(err))
     finally:
         connection.close()
+    
+    return responses
 
 # DELETE request to delete a company
 @app.delete("/employee/delete/{emp_id}")
@@ -1663,16 +1960,16 @@ async def delete_daily_report(emp_id: str, cid: str, checkinTime: str):
         connection.close()
 
 
-@app.get("/dailyreport/getdatebasedata/{date_value}")
-async def get_employee(date_value: str):
+@app.get("/dailyreport/getdatebasedata/{cid}/{date_value}")
+async def get_employee(cid: str, date_value: str):
     connection = connect_to_database()
     if not connection:
         return {"error": "Failed to connect to database"}
 
     try:
         with connection.cursor() as mycursor:
-            sql = "CALL spGetEmployeeDailyReport(%s);"
-            mycursor.execute(sql, (date_value,))  # Enclose emp_id in a tuple
+            sql = "CALL spGetEmployeeDailyReport(%s, %s);"
+            mycursor.execute(sql, (cid, date_value,)) 
             daily_report = mycursor.fetchall()
             if daily_report:
                 return daily_report
@@ -1685,8 +1982,30 @@ async def get_employee(date_value: str):
     finally:
         connection.close()
 
+@app.post("/dailyReport/getDateRangeReport/{cid}")
+def get_daily_report_from(cid: str, dateRange: dict= Body(...)):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
 
-@app.get("/dailyReport/getDateRangeReport/{cid}/{startDate}/{endDate}")
+    try:
+        with connection.cursor() as cursor:
+            startdate = dateRange.get("startdate")
+            enddate = dateRange.get("enddate")
+            sql = 'CALL spGetCompanyDailyReportFromRange(%s, %s, %s);'
+            cursor.execute(sql, (cid,startdate,enddate))
+            myresult = cursor.fetchall()
+            if myresult:
+                return myresult
+            else:
+                return {"error": f"Report for comany with ID '{cid}' for given  not found"}
+    except pymysql.MySQLError as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
+@app.get("/dailyReport/getDateRangeReportGet/{cid}/{startDate}/{endDate}")
 def get_daily_report_from(cid: str, startDate: str,endDate: str):
     connection = connect_to_database()
     if not connection:
@@ -1694,7 +2013,7 @@ def get_daily_report_from(cid: str, startDate: str,endDate: str):
 
     try:
         with connection.cursor() as cursor:
-            sql = 'CALL spGetCompanyDailyReportFromRange(%s, %s, %s);'
+            sql = 'CALL spGetCompanyDailyReportFromDateRange(%s, %s, %s);'
             cursor.execute(sql, (cid,startDate,endDate))
             myresult = cursor.fetchall()
             if myresult:
@@ -1728,6 +2047,32 @@ async def get_employee_report(emp_id : str , date_value: str):
         return {"error": str(err)}
     finally:
         connection.close()
+
+
+@app.post("/dailyreportBasedonCID/get/{cid}")
+async def get_company_based_report(cid : str , dateRange: dict= Body(...)):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as mycursor:
+            startdate = dateRange.get("startdate")
+            enddate = dateRange.get("enddate")
+            sql = "CALL spGetCompanyBasedDailyReport(%s, %s, %s);"
+            mycursor.execute(sql, (cid, startdate, enddate))  # Enclose emp_id in a tuple
+            daily_report = mycursor.fetchall()
+            if daily_report:
+                return daily_report
+            else:
+                return {"error": "Daily report not found"}
+
+    except pymysql.Error as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
 
 
 @app.get("/device/getAll/{cid}")

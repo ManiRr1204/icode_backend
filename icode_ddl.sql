@@ -1371,31 +1371,31 @@
 
 
 
--- DELIMITER //
+DELIMITER //
 
--- CREATE PROCEDURE spGetCompanyDailyReportFromRange(IN cid char(36), IN startDate DATE, IN endDate Date)
--- BEGIN
---     SELECT 
---         CONCAT(Employee.FName, " ", Employee.LName) AS "Name", 
---         Employee.PIN AS "Pin", 
---         DailyReportTable.TypeID AS "Type", 
---         DailyReportTable.CheckInTime  AS "CheckInTime", 
---         DailyReportTable.CheckOutTime  AS "CheckOutTime",  
---         DailyReportTable.TimeWorked  AS "TimeWorked"
---     FROM 
---         Employee
---     JOIN 
---         DailyReportTable 
---     ON 
---         Employee.EmpID = DailyReportTable.EmpID 
---     AND 
---         Employee.CID = DailyReportTable.CID 
---     WHERE 
+CREATE PROCEDURE spGetCompanyDailyReportFromDateRange(IN cid char(36), IN startDate DATE, IN endDate Date)
+BEGIN
+    SELECT 
+        CONCAT(Employee.FName, " ", Employee.LName) AS "Name", 
+        Employee.PIN AS "Pin", 
+        DailyReportTable.TypeID AS "Type", 
+        DailyReportTable.CheckInTime  AS "CheckInTime", 
+        DailyReportTable.CheckOutTime  AS "CheckOutTime",  
+        DailyReportTable.TimeWorked  AS "TimeWorked"
+    FROM 
+        Employee
+    JOIN 
+        DailyReportTable 
+    ON 
+        Employee.EmpID = DailyReportTable.EmpID 
+    AND 
+        Employee.CID = DailyReportTable.CID 
+    WHERE 
     
---     Date >= startDate AND Date < endDate + INTERVAL 1 DAY AND CID = cid;
--- END //
+    Date >= startDate AND Date < endDate + INTERVAL 1 DAY AND CID = cid;
+END //
 
--- DELIMITER ;
+DELIMITER ;
 
 
 
@@ -3259,6 +3259,72 @@ BEGIN
     WHERE 
     
     Date >= startDate AND Date < endDate + INTERVAL 1 DAY AND DailyReportTable.CID = cid;
+END //
+
+DELIMITER ;
+
+
+
+DELIMITER //
+CREATE PROCEDURE `spGetAllDevicesWithoutBasedOnCID`()
+BEGIN
+    SELECT * FROM Device WHERE IsActive = true;
+END //
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE PROCEDURE `spGetCompanyBasedDailyReport`(IN p_cid CHAR(36),  IN startDateTime DATETIME, endDateTime DATETIME)
+BEGIN
+    SELECT 
+        CONCAT(Employee.FName, " ", Employee.LName) AS "Name", 
+        Employee.PIN AS "Pin", 
+        DailyReportTable.TypeID AS "Type", 
+        DailyReportTable.CheckInTime  AS "CheckInTime", 
+        DailyReportTable.CheckOutTime  AS "CheckOutTime",  
+        DailyReportTable.CheckInSnap  AS "CheckInSnap", 
+        DailyReportTable.CheckOutSnap  AS "CheckOutSnap",  
+        DailyReportTable.TimeWorked  AS "TimeWorked",
+        Employee.EmpID AS "EmpID",
+        Employee.CID AS "CID"
+    FROM 
+        Employee
+    JOIN 
+        DailyReportTable 
+    ON 
+        Employee.EmpID = DailyReportTable.EmpID 
+    AND 
+        Employee.CID = DailyReportTable.CID 
+    WHERE 
+        DailyReportTable.CID = p_cid AND  `CheckInTime` BETWEEN `startDateTime` AND `endDateTime`;
+END //
+
+DELIMITER ;
+
+DELIMITER //
+
+CREATE PROCEDURE `spGetCompanyDailyReportFromRange`(IN cid char(36), IN startDate DATETIME, IN endDate DATETIME)
+BEGIN
+    SELECT 
+        CONCAT(Employee.FName, " ", Employee.LName) AS "Name", 
+        Employee.PIN AS "Pin", 
+        DailyReportTable.TypeID AS "Type", 
+        DailyReportTable.CheckInTime  AS "CheckInTime", 
+        DailyReportTable.CheckOutTime  AS "CheckOutTime",  
+        DailyReportTable.TimeWorked  AS "TimeWorked"
+    FROM 
+		DailyReportTable
+    JOIN
+        Employee
+ 
+    ON 
+        Employee.EmpID = DailyReportTable.EmpID 
+    AND 
+        Employee.CID = DailyReportTable.CID 
+    WHERE 
+    
+    `CheckInTime` BETWEEN `startDate` AND `endDate` AND DailyReportTable.CID = cid;
 END //
 
 DELIMITER ;
