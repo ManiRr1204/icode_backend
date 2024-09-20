@@ -8,6 +8,7 @@ fastapi = "*"
 mangum = "*"
 pymysql = "*"
 stripe = "*"
+yagmail = "*"
 
 [dev-packages]
 

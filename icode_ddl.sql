@@ -3328,3 +3328,49 @@ BEGIN
 END //
 
 DELIMITER ;
+
+
+CREATE TABLE `WebsiteContactUs` (
+  `FirstName` char(36) NOT NULL,
+  `LastName` char(36) DEFAULT NULL,
+  `Email` varchar(255) DEFAULT NULL,
+  `WhatsappNumber` varchar(20) DEFAULT NULL,
+  `Subject` text,
+  `PhoneNumber` varchar(20) DEFAULT NULL,
+  `Message` text,
+  `Address` varchar(255) DEFAULT NULL
+);
+
+DELIMITER //
+
+CREATE  PROCEDURE `spCreateWebsiteContactUs`(
+    IN p_FirstName CHAR(36),
+    IN p_LastName CHAR(36),
+    IN p_Email VARCHAR(255),
+    IN p_WhatsappNumber VARCHAR(20),
+    IN p_Subject TEXT,
+    IN p_phoneNumber VARCHAR(20),
+    IN p_Message TEXT,
+    IN p_Address VARCHAR(255)
+)
+BEGIN
+    INSERT INTO ContactUS (
+        RequestID, 
+        CID, 
+        Name,
+        RequestorEmail, 
+        ConcernsQuestions, 
+        PhoneNumber, 
+        Status
+    ) VALUES (
+        p_requestId, 
+        p_CID, 
+        p_Name,
+        p_requestorEmail, 
+        p_concerns_questions, 
+        p_phoneNumber, 
+        p_status
+    );
+END //
+
+DELIMITER ;
