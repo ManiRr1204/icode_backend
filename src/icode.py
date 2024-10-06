@@ -5,7 +5,7 @@ import pymysql
 import stripe
 from pydantic import BaseModel
 from fastapi.responses import JSONResponse
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import yagmail
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,6 +40,14 @@ def connect_to_database():
 @app.get("/test")
 def get_test():
    return {"response": "Test get call successfully called"}
+
+@app.get("/getAppData")
+def get_test():
+   return {"appData": {
+            "androidVersion" : "1.0.0",
+            "androidAppLink": "",
+            "hereForValueList" : ["Belt", "Path", "Camp", "External", "Trial", "Reception"]
+        }}
 
 @app.get("/company/get")
 def get_all_companies():
@@ -118,6 +126,13 @@ async def create_company(company: dict = Body(...)):
             username = company.get("UserName")
             password = company.get("Password")
             reportType = company.get("ReportType")
+            LastModifiedBy = company.get("LastModifiedBy")
+
+            # Get current UTC datetime
+            utc_now = datetime.now(timezone.utc)
+            # Format as a string
+            utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
+
 
             # Check if username is already exists
             check_sql = "SELECT COUNT(*) AS count FROM Company WHERE UserName = %s"
@@ -127,8 +142,8 @@ async def create_company(company: dict = Body(...)):
                 return {"error": "UserName already exists"}
 
             else:
-                sql = "CALL spCreateCompany(%s, %s, %s, %s, %s, %s, %s)"
-                cursor.execute(sql, (cid, cname, clogo, caddress, username, password, reportType))
+                sql = "CALL spCreateCompany(%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                cursor.execute(sql, (cid, cname, clogo, caddress, username, password, reportType, LastModifiedBy, utc_datetime_string))
                 connection.commit()
 
                 return {"message": "Company created successfully", "CID": cid, "UserName": username}
@@ -140,8 +155,8 @@ async def create_company(company: dict = Body(...)):
         connection.close()
 
 # DELETE request to delete a company
-@app.delete("/company/delete/{company_id}")
-async def delete_company(company_id: str):
+@app.put("/company/delete/{company_id}/{LastModifiedBy}")
+async def delete_company(company_id: str, LastModifiedBy: str):
     connection = connect_to_database()
     if not connection:
         return {"error": "Failed to connect to database"}
@@ -149,14 +164,19 @@ async def delete_company(company_id: str):
     try:
         with connection.cursor() as cursor:
 
+            # Get current UTC datetime
+            utc_now = datetime.now(timezone.utc)
+            # Format as a string
+            utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
+
             # Check if username is already exists
             check_sql = "SELECT COUNT(*) AS count FROM Company WHERE CID = %s"
             cursor.execute(check_sql, (company_id,))
             result = cursor.fetchone()
 
             if result['count'] > 0:
-                sql = "CALL spDeleteCompany(%s)"
-                cursor.execute(sql, (company_id,))
+                sql = "CALL spDeleteCompany(%s, %s, %s)"
+                cursor.execute(sql, (company_id, LastModifiedBy, utc_datetime_string))
                 connection.commit()  # Commit changes
 
                 return {"message": f"Company with ID '{company_id}' deleted successfully"}
@@ -185,6 +205,12 @@ async def update_company(company_id: str, company: dict = Body(...)):
             username = company.get("UserName")
             password = company.get("Password")
             reportType = company.get("ReportType")
+            LastModifiedBy = company.get("LastModifiedBy")
+
+            # Get current UTC datetime
+            utc_now = datetime.now(timezone.utc)
+            # Format as a string
+            utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
             
             
             check_sql = "SELECT COUNT(*) AS count FROM Company WHERE UserName = %s"
@@ -197,8 +223,8 @@ async def update_company(company_id: str, company: dict = Body(...)):
                 result_2 = cursor.fetchone()
 
                 if result_2['count'] > 0:
-                    sql = "CALL spUpdateCompany(%s, %s, %s, %s, %s, %s, %s)"
-                    cursor.execute(sql, (company_id, cname, clogo, caddress, username, password, reportType))
+                    sql = "CALL spUpdateCompany(%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                    cursor.execute(sql, (company_id, cname, clogo, caddress, username, password, reportType, LastModifiedBy, utc_datetime_string))
                     connection.commit()
                     return {"message": "Company updated successfully", "CID": company_id, "UserName": username}
                 
@@ -220,16 +246,25 @@ async def update_company(company_id: str, company: dict = Body(...)):
         connection.close()
 
 @app.put("/company/update/report_type/{company_id}")
-async def update_report_type(company_id: str, report_type: str = Body(...)):
+async def update_report_type(company_id: str, report_type_dict: dict = Body(...)):
     connection = connect_to_database()
     if not connection:
         return {"error": "Failed to connect to database"}
 
     try:
         with connection.cursor() as cursor:
+
+            report_type = report_type_dict.get("report_type")
+            LastModifiedBy = report_type_dict.get("LastModifiedBy")
+
+            # Get current UTC datetime
+            utc_now = datetime.now(timezone.utc)
+            # Format as a string
+            utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
+
             # Call the stored procedure to update the ReportType
-            sql = "CALL spUpdateReportType(%s, %s)"
-            cursor.execute(sql, (company_id, report_type))
+            sql = "CALL spUpdateReportType(%s, %s, %s, %s)"
+            cursor.execute(sql, (company_id, report_type, LastModifiedBy, utc_datetime_string))
             connection.commit()
             return {"message": "Company Report type updated successfully", "CID": company_id, "ReportType": report_type}
     except pymysql.Error as err:
@@ -299,6 +334,12 @@ async def create_customer(customer = Body(...)):
             phone_number = customer.get("PhoneNumber")
             email = customer.get("Email")
             is_active = customer.get("IsActive")
+            LastModifiedBy = customer.get("LastModifiedBy")
+
+            # Get current UTC datetime
+            utc_now = datetime.now(timezone.utc)
+            # Format as a string
+            utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
             
             check_sql = "SELECT COUNT(*) AS count FROM Customer WHERE CustomerID = %s"
             cursor.execute(check_sql, (customer_id))
@@ -308,8 +349,8 @@ async def create_customer(customer = Body(...)):
                 return {"error": "Customer id already exists"}
 
             else:
-                sql = "CALL spCreateCustomer(%s, %s, %s, %s, %s, %s, %s, %s)"
-                cursor.execute(sql, (customer_id, cid, fname, lname, address, phone_number, email, is_active))
+                sql = "CALL spCreateCustomer(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                cursor.execute(sql, (customer_id, cid, fname, lname, address, phone_number, email, is_active, LastModifiedBy, utc_datetime_string))
                 connection.commit()
 
                 return {"message": "Customer created successfully", "CustomerID": customer_id}
@@ -321,21 +362,26 @@ async def create_customer(customer = Body(...)):
         connection.close()
 
 # DELETE request to delete a customer_id
-@app.delete("/customer/delete/{customer_id}")
-async def delete_customer(customer_id: str):
+@app.put("/customer/delete/{customer_id}/{LastModifiedBy}")
+async def delete_customer(customer_id: str, LastModifiedBy: str):
     connection = connect_to_database()
     if not connection:
         return {"error": "Failed to connect to database"}
 
     try:
         with connection.cursor() as cursor:
+            # Get current UTC datetime
+            utc_now = datetime.now(timezone.utc)
+            # Format as a string
+            utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
+
             check_sql = "SELECT COUNT(*) AS count FROM Customer WHERE CustomerID = %s"
             cursor.execute(check_sql, (customer_id,))
             result = cursor.fetchone()
             
             if result['count'] > 0:
-                sql = "CALL spDeleteCustomer(%s)"
-                cursor.execute(sql, (customer_id,))
+                sql = "CALL spDeleteCustomer(%s, %s, %s)"
+                cursor.execute(sql, (customer_id, LastModifiedBy, utc_datetime_string))
                 connection.commit()
 
                 return {"message": f"Customer with ID '{customer_id}' deleted successfully"}
@@ -357,137 +403,35 @@ async def update_customer(customer_id: str, customer = Body(...)):
 
     try:
         with connection.cursor() as cursor:
+
+            customer_id = customer.get("CustomerID")
+            cid = customer.get("CID")
+            fname = customer.get("FName")
+            lname = customer.get("LName")
+            address = customer.get("Address")
+            phone_number = customer.get("PhoneNumber")
+            email = customer.get("Email")
+            is_active = customer.get("IsActive")
+            LastModifiedBy = customer.get("LastModifiedBy")
+
+            # Get current UTC datetime
+            utc_now = datetime.now(timezone.utc)
+            # Format as a string
+            utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
+
             check_sql = "SELECT COUNT(*) AS count FROM Customer WHERE CustomerID = %s"
             cursor.execute(check_sql, (customer_id,))
             result = cursor.fetchone()
             
             if result['count'] > 0:
-                sql = "CALL spUpdateCustomer(%(CustomerID)s, %(CID)s, %(FName)s, %(LName)s, %(Address)s, %(PhoneNumber)s, %(Email)s, %(IsActive)s)"
-                cursor.execute(sql, customer)
+                sql = "CALL spUpdateCustomer(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                cursor.execute(sql, (customer_id, cid, fname, lname, address, phone_number, email, is_active, LastModifiedBy, utc_datetime_string))
                 connection.commit()  # Commit changes
                 return {"message": f"Customer with ID '{customer_id}' updated successfully"}
             else:
                 return {"error": "Customer id not found", "CustomerID": customer_id} 
 
     except pymysql.connector.Error as err:
-        print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)}
-    finally:
-        connection.close()
-
-@app.get("/deviceSetting/get/{deviceId},{companyId}")
-async def get_device_setting(deviceId: str,companyId : str):
-    connection = connect_to_database()
-    if not connection:
-        return {"error": "Failed to connect to database"}
-
-    try:
-        with connection.cursor() as mycursor:
-            sql = "CALL spGetDeviceSetting(%s, %s);"
-            mycursor.execute(sql, (deviceId,companyId,))  # Enclose emp_id in a tuple
-            myresult = mycursor.fetchall()
-            if myresult:
-                return myresult
-            else:
-                return {"message": f"{companyId} with device id '{deviceId}' not found"}
-
-    except pymysql.Error as err:
-        print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)}
-    finally:
-        connection.close()
-
-
-# POST request to create a employee
-@app.post("/deviceSetting/create")
-async def create_device_setting(deviceSetting: dict = Body(...)):
-    connection = connect_to_database()
-    if not connection:
-        return {"error": "Failed to connect to database"}
-
-    try:
-        with connection.cursor() as cursor:
-            
-            deviceid = deviceSetting.get("DeviceID")
-            cid = deviceSetting.get("CID")
-            devicename = deviceSetting.get("DeviceName") 
-            regid = deviceSetting.get("RegID")
-            isactive =  deviceSetting.get("IsActive")
-
-            # Check if device id is already exists
-            check_sql = "SELECT COUNT(*) AS count FROM DeviceSetting WHERE DeviceID = %s"
-            cursor.execute(check_sql, (deviceid,))
-            result = cursor.fetchone()
-            if result['count'] > 0:
-                return {"error": "DeviceID already exists"}
-
-            else:
-                sql = "CALL spCreateDeviceSetting(%s, %s, %s, %s, %s);"
-                cursor.execute(sql, (deviceid, cid, devicename, regid, isactive))
-                connection.commit()  
-                return {"message": "deviceSetting created successfully", "DeviceID": deviceid}
-
-    except pymysql.Error as err:
-        print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)}
-    finally:
-        connection.close()
-
-# DELETE request to delete a company
-@app.delete("/deviceSetting/delete/{deviceId},{companyId}")
-async def delete_device_setting(deviceId: str,companyId: str):
-    connection = connect_to_database()
-    if not connection:
-        return {"error": "Failed to connect to database"}
-
-    try:
-        with connection.cursor() as cursor:
-            # Check if device id is already exists
-            check_sql = "SELECT COUNT(*) AS count FROM DeviceSetting WHERE DeviceID = %s"
-            cursor.execute(check_sql, (deviceId,))
-            result = cursor.fetchone()
-            if result['count'] > 0:
-                sql = "CALL spDeleteDeviceSetting(%s,%s)"
-                cursor.execute(sql, (deviceId,companyId,))
-                connection.commit()
-
-                return {"message": f"deviceSetting with ID '{deviceId}' deleted successfully"}
-            else:
-                return {"error": "DeviceID not found", "DeviceID": deviceId, "CompanyID": companyId}
-
-    except pymysql.Error as err:
-        print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)}
-    finally:
-        connection.close()
-
-# PUT request to update a employee
-@app.put("/deviceSetting/update/{deviceId},{companyId}")
-async def update_device_setting(deviceId: str, companyId: str, deviceSetting: dict = Body(...)):
-    connection = connect_to_database()
-    if not connection:
-        return {"error": "Failed to connect to database"}
-
-    try:
-        with connection.cursor() as cursor:
-            devicename = deviceSetting.get("DeviceName") 
-            regid = deviceSetting.get("RegID")
-            isactive =  deviceSetting.get("IsActive")
-
-            # Check if device id is already exists
-            check_sql = "SELECT COUNT(*) AS count FROM DeviceSetting WHERE DeviceID = %s"
-            cursor.execute(check_sql, (deviceId,))
-            result = cursor.fetchone()
-            if result['count'] > 0:
-                sql = "CALL spUpdateDeviceSetting(%s, %s, %s, %s, %s)"
-                cursor.execute(sql, (deviceId, companyId, devicename, regid, isactive))
-                connection.commit()
-
-                return {"message": f"deviceSetting with ID '{deviceId}' updated successfully"}
-            else:
-               return {"error": "DeviceID not found", "DeviceID": deviceId, "CompanyID": companyId}
-
-    except pymysql.Error as err:
         print(f"Error calling stored procedure: {err}")
         return {"error": str(err)}
     finally:
@@ -540,6 +484,29 @@ async def get__all_employee(cid : str):
         connection.close()
 
 
+@app.get("/getadmin/{cid}")
+async def get__admins(cid : str):
+    connection = connect_to_database()
+    if not connection:
+        return {"error": "Failed to connect to database"}
+
+    try:
+        with connection.cursor() as mycursor:
+            sql = "CALL spGetAdmin(%s);"
+            mycursor.execute(sql, (cid,)) 
+            employee = mycursor.fetchall()
+
+            if employee:
+                return employee
+            else:
+                return {"error": f"Company with ID '{cid}' not found"}
+
+    except pymysql.Error as err:
+        print(f"Error calling stored procedure: {err}")
+        return {"error": str(err)}
+    finally:
+        connection.close()
+
 
 @app.get("/employee/get/{emp_id}")
 async def get_employee(emp_id: str):
@@ -581,6 +548,13 @@ async def create_employee(employee: dict = Body(...)):
             isactive = employee.get("IsActive")
             phoneno = employee.get("PhoneNumber")
             pin = employee.get("Pin")
+            isadmin = employee.get("IsAdmin")
+            LastModifiedBy = employee.get("LastModifiedBy")
+
+            # Get current UTC datetime
+            utc_now = datetime.now(timezone.utc)
+            # Format as a string
+            utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
             
             # Check if employee already exists
             check_sql = "SELECT COUNT(*) AS count FROM Employee WHERE EmpID = %s"
@@ -590,8 +564,8 @@ async def create_employee(employee: dict = Body(...)):
             if result['count'] > 0:
                 return {"error": "Employee already exists", "EmpID": empid}
             else:
-                sql = "CALL spCreateEmployee(%s, %s, %s, %s, %s, %s, %s);"
-                cursor.execute(sql, (empid, cid, fname, lname, isactive, phoneno, pin))
+                sql = "CALL spCreateEmployee(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);"
+                cursor.execute(sql, (empid, cid, fname, lname, isactive, phoneno, pin, isadmin, LastModifiedBy, utc_datetime_string))
                 connection.commit()
                 return {"message": "Employee created successfully", "EmpID": empid}
 
@@ -601,22 +575,26 @@ async def create_employee(employee: dict = Body(...)):
         connection.close()
 
 # DELETE request to delete a company
-@app.delete("/employee/delete/{emp_id}")
-async def delete_employee(emp_id: str):
+@app.put("/employee/delete/{emp_id}/{LastModifiedBy}")
+async def delete_employee(emp_id: str, LastModifiedBy: str):
     connection = connect_to_database()
     if not connection:
         return {"error": "Failed to connect to database"}
 
     try:
         with connection.cursor() as cursor:
+            # Get current UTC datetime
+            utc_now = datetime.now(timezone.utc)
+            # Format as a string
+            utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
 
             # Check if Employee id is already exists
             check_sql = "SELECT COUNT(*) AS count FROM Employee WHERE EmpID = %s"
             cursor.execute(check_sql, (emp_id,))
             result = cursor.fetchone()
             if result['count'] > 0:
-                sql = "CALL spDeleteEmployee(%s)"
-                cursor.execute(sql, (emp_id,))
+                sql = "CALL spDeleteEmployee(%s, %s, %s)"
+                cursor.execute(sql, (emp_id, LastModifiedBy, utc_datetime_string))
                 connection.commit()
 
                 return {"message": f"Employee with ID '{emp_id}' deleted successfully"}
@@ -644,14 +622,21 @@ async def update_employee(emp_id: str, employee: dict = Body(...)):
             isactive =  employee.get("IsActive")
             phoneno = employee.get("PhoneNumber")
             pin = employee.get("Pin")
+            isadmin = employee.get("IsAdmin")
+            LastModifiedBy = employee.get("LastModifiedBy")
+
+            # Get current UTC datetime
+            utc_now = datetime.now(timezone.utc)
+            # Format as a string
+            utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
             
             # Check if Employee id is already exists
             check_sql = "SELECT COUNT(*) AS count FROM Employee WHERE EmpID = %s"
             cursor.execute(check_sql, (emp_id,))
             result = cursor.fetchone()
             if result['count'] > 0:
-                sql = "CALL spUpdateEmployee(%s, %s, %s, %s, %s, %s, %s)"
-                cursor.execute(sql, (emp_id, cid, fname, lname, isactive, phoneno,pin))
+                sql = "CALL spUpdateEmployee(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                cursor.execute(sql, (emp_id, cid, fname, lname, isactive, phoneno,pin, isadmin, LastModifiedBy, utc_datetime_string))
                 connection.commit()
 
                 return {"message": f"Company with ID '{emp_id}' updated successfully"}
@@ -680,6 +665,12 @@ async def create_contact(contact: dict = Body(...)):
             concerns_questions = contact.get("ConcernsQuestions")
             phone_number = contact.get("PhoneNumber")
             status = contact.get("Status")
+            LastModifiedBy = contact.get("LastModifiedBy")
+
+            # Get current UTC datetime
+            utc_now = datetime.now(timezone.utc)
+            # Format as a string
+            utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
 
             # Check if request id is already exists
             check_sql = "SELECT COUNT(*) AS count FROM ContactUS WHERE RequestID = %s"
@@ -690,12 +681,12 @@ async def create_contact(contact: dict = Body(...)):
             else:
                 sql = """
                     CALL spCreateContact(
-                        %s, %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s
                     );
                 """
                 cursor.execute(sql, (
                     request_id, cid, name, requestor_email,
-                    concerns_questions, phone_number, status
+                    concerns_questions, phone_number, status, LastModifiedBy, utc_datetime_string
                 ))
                 connection.commit()
 
@@ -746,6 +737,12 @@ async def update_contact(request_id : str, contact: dict = Body(...)):
             concerns_questions = contact.get("ConcernsQuestions")
             phone_number = contact.get("PhoneNumber")
             status = contact.get("Status")
+            LastModifiedBy = contact.get("LastModifiedBy")
+
+            # Get current UTC datetime
+            utc_now = datetime.now(timezone.utc)
+            # Format as a string
+            utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
 
             # Check if request id is already exists
             check_sql = "SELECT COUNT(*) AS count FROM ContactUS WHERE RequestID = %s"
@@ -754,12 +751,12 @@ async def update_contact(request_id : str, contact: dict = Body(...)):
             if result['count'] > 0:
                 sql = """
                     CALL spUpdateContact(
-                        %s, %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s
                     );
                 """
                 cursor.execute(sql, (
                     request_id, cid, name, requestor_email,
-                    concerns_questions, phone_number, status
+                    concerns_questions, phone_number, status, LastModifiedBy, utc_datetime_string
                 ))
                 connection.commit()  # Commit changes
 
@@ -776,21 +773,26 @@ async def update_contact(request_id : str, contact: dict = Body(...)):
         connection.close()
 
 # Endpoint to delete a contact
-@app.delete("/contact-us/delete/{request_id}")
-async def delete_contact(request_id: str):
+@app.put("/contact-us/delete/{request_id}/{LastModifiedBy}")
+async def delete_contact(request_id: str, LastModifiedBy: str):
     connection = connect_to_database()
     if not connection:
         return {"error": "Failed to connect to database"}
 
     try:
         with connection.cursor() as cursor:
+            # Get current UTC datetime
+            utc_now = datetime.now(timezone.utc)
+            # Format as a string
+            utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
+
             # Check if request id is already exists
             check_sql = "SELECT COUNT(*) AS count FROM ContactUS WHERE RequestID = %s"
             cursor.execute(check_sql, (request_id,))
             result = cursor.fetchone()
             if result['count'] > 0:
-                sql = "CALL spDeleteContact(%s);"
-                cursor.execute(sql, (request_id,))
+                sql = "CALL spDeleteContact(%s, %s, %s);"
+                cursor.execute(sql, (request_id, LastModifiedBy, utc_datetime_string))
                 connection.commit()  # Commit changes
 
                 return {"message": "Contact deleted successfully"}
@@ -798,322 +800,6 @@ async def delete_contact(request_id: str):
                 return {"error": "Request ID not found" , "ReportID": request_id}  
 
     except pymysql.Error as err:
-        print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)}
-    finally:
-        connection.close()
-
-@app.post("/report-recipient/create")
-async def create_report_recipient(report_recipient: dict = Body(...)):
-    connection = connect_to_database()
-    if not connection:
-        return {"error": "Failed to connect to database"}
-
-    try:
-        with connection.cursor() as cursor:
-            checkin_id = report_recipient.get("CheckinID")
-            cid = report_recipient.get("CID")
-            email_id = report_recipient.get("EmailId")
-            exec_flag = report_recipient.get("Exec")
-
-            check_sql = "SELECT COUNT(*) AS count FROM ReportRecipients WHERE CheckinID = %s"
-            cursor.execute(check_sql, (checkin_id,))
-            result = cursor.fetchone()
-            if result['count'] > 0:
-                return {"error": "Check-in id already exists", "CheckinID": checkin_id}
-            else:
-                sql = "CALL spCreateReportRecipient(%s, %s, %s, %s)"
-                cursor.execute(sql, (checkin_id, cid, email_id, exec_flag))
-                connection.commit()
-
-                return {"message": "Report recipient created successfully"}
-
-    except pymysql.MySQLError as err:
-        print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)}
-    finally:
-        connection.close()
-
-@app.get("/report-recipient/get/{checkin_id}")
-def get_report_recipient(checkin_id: str):
-    connection = connect_to_database()
-    if not connection:
-        return {"error": "Failed to connect to database"}
-    try:
-        with connection.cursor() as cursor:
-            sql = 'CALL spGetReportRecipient(%s)'
-            cursor.execute(sql, (checkin_id,))
-            myresult = cursor.fetchone()
-            if myresult:
-                return myresult
-            else:
-                return {"message": f"Report recipient with checkin ID '{checkin_id}' not found"}
-    except pymysql.MySQLError as err:
-        print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)}
-    finally:
-        connection.close()
-
-@app.put("/report-recipient/update/{checkin_id}")
-def update_report_recipient(checkin_id: str, report_recipient: dict = Body(...)):
-    connection = connect_to_database()
-    if not connection:
-        return {"error": "Failed to connect to database"}
-
-    try:
-        with connection.cursor() as cursor:
-            cid = report_recipient.get("CID")
-            email_id = report_recipient.get("EmailId")
-            exec_flag = report_recipient.get("Exec")
-
-            check_sql = "SELECT COUNT(*) AS count FROM ReportRecipients WHERE CheckinID = %s"
-            cursor.execute(check_sql, (checkin_id,))
-            result = cursor.fetchone()
-            if result['count'] > 0:
-
-                sql = 'CALL spUpdateReportRecipient(%s, %s, %s, %s)'
-                cursor.execute(sql, (checkin_id, cid, email_id, exec_flag))
-                connection.commit() 
-
-                return {"message": "Report recipient updated successfully"}
-            else:
-                return {"error": "Check-in id not found", "CheckinID": checkin_id}
-            
-    except pymysql.MySQLError as err:
-        print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)}
-    finally:
-        connection.close()
-
-@app.delete("/report-recipient/delete/{checkin_id}")
-def delete_report_recipient(checkin_id: str):
-    connection = connect_to_database()
-    if not connection:
-        return {"error": "Failed to connect to database"}
-
-    try:
-        with connection.cursor() as cursor:
-            check_sql = "SELECT COUNT(*) AS count FROM ReportRecipients WHERE CheckinID = %s"
-            cursor.execute(check_sql, (checkin_id,))
-            result = cursor.fetchone()
-            if result['count'] > 0:
-                sql = 'CALL spDeleteReportRecipient(%s)'
-                cursor.execute(sql, (checkin_id,))
-                connection.commit()  # Commit changes
-
-                return {"message": f"Report recipient with checkin ID '{checkin_id}' deleted successfully"}
-            else:
-                return {"error": "Check-in id not found", "CheckinID": checkin_id}
-    except pymysql.MySQLError as err:
-        print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)}
-    finally:
-        connection.close()
-
-@app.post("/checkin-type/create")
-async def create_checkin_type(checkin_type: dict = Body(...)):
-    connection = connect_to_database()
-    if not connection:
-        return {"error": "Failed to connect to database"}
-
-    try:
-        with connection.cursor() as cursor:
-            
-            type_id = checkin_type.get("TypeID")
-            cid = checkin_type.get("CID")
-            type_names = checkin_type.get("TypeNames")
-
-            check_sql = "SELECT COUNT(*) AS count FROM CheckInType WHERE TypeID = %s"
-            cursor.execute(check_sql, (type_id,))
-            result = cursor.fetchone()
-            if result['count'] > 0:
-                return {"error": "Check-in Type Id already exists", "TypeID": type_id}
-            else:
-                sql = "CALL spCreateCheckInType(%s, %s, %s)"
-                cursor.execute(sql, (type_id, cid, type_names))
-                connection.commit()
-
-                return {"message": "Check-in type created successfully"}
-
-    except pymysql.MySQLError as err:
-        print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)}
-    finally:
-        connection.close()
-
-@app.get("/checkin-type/get/{type_id}")
-def get_checkin_type(type_id: str):
-    connection = connect_to_database()
-    if not connection:
-        return {"error": "Failed to connect to database"}
-    try:
-        with connection.cursor() as cursor:
-            sql = 'CALL spGetCheckInType(%s)'
-            cursor.execute(sql, (type_id,))
-            myresult = cursor.fetchone()
-            if myresult:
-                return myresult
-            else:
-                return {"message": f"Check-in type with ID '{type_id}' not found"}
-    except pymysql.MySQLError as err:
-        print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)}
-    finally:
-        connection.close()
-
-@app.put("/checkin-type/update/{type_id}")
-def update_checkin_type(type_id: str, checkin_type: dict = Body(...)):
-    connection = connect_to_database()
-    if not connection:
-        return {"error": "Failed to connect to database"}
-
-    try:
-        with connection.cursor() as cursor:
-            cid = checkin_type.get("CID")
-            type_names = checkin_type.get("TypeNames")
-
-            check_sql = "SELECT COUNT(*) AS count FROM CheckInType WHERE TypeID = %s"
-            cursor.execute(check_sql, (type_id,))
-            result = cursor.fetchone()
-            if result['count'] > 0:
-                sql = 'CALL spUpdateCheckInType(%s, %s, %s)'
-                cursor.execute(sql, (type_id, cid, type_names))
-                connection.commit()  # Commit changes
-
-                return {"message": "Check-in type updated successfully"}
-            else:
-                return {"error": "Check-in Type Id not found", "TypeID": type_id}
-            
-    except pymysql.MySQLError as err:
-        print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)}
-    finally:
-        connection.close()
-
-@app.delete("/checkin-type/delete/{type_id}")
-def delete_checkin_type(type_id: str):
-    connection = connect_to_database()
-    if not connection:
-        return {"error": "Failed to connect to database"}
-
-    try:
-        with connection.cursor() as cursor:
-            check_sql = "SELECT COUNT(*) AS count FROM CheckInType WHERE TypeID = %s"
-            cursor.execute(check_sql, (type_id,))
-            result = cursor.fetchone()
-            if result['count'] > 0:
-
-                sql = 'CALL spDeleteCheckInType(%s)'
-                cursor.execute(sql, (type_id,))
-                connection.commit()  # Commit changes
-
-                return {"message": f"Check-in type with ID '{type_id}' deleted successfully"}
-            else:
-                return {"error": "Check-in Type Id not found", "TypeID": type_id}
-            
-    except pymysql.MySQLError as err:
-        print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)}
-    finally:
-        connection.close()
-
-@app.get("/report-type/get/{report_type_id}")
-def get_report_type(report_type_id: str):
-    connection = connect_to_database()
-    if not connection:
-        return {"error": "Failed to connect to database"}
-    try:
-        with connection.cursor() as cursor:
-            sql = 'CALL spGetReportType(%s)'
-            cursor.execute(sql, (report_type_id,))
-            myresult = cursor.fetchone()
-            if myresult:
-                return myresult
-            else:
-                return {"message": f"Report type with ID '{report_type_id}' not found"}
-    except pymysql.MySQLError as err:
-        print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)}
-    finally:
-        connection.close()
-
-@app.post("/report-type/create")
-def create_report_type( report_type: dict = Body(...)):
-    connection = connect_to_database()
-    if not connection:
-        return {"error": "Failed to connect to database"}
-
-    try:
-        with connection.cursor() as cursor:
-            report_type_id = report_type.get("ReportTypeID")
-            report_type_name = report_type.get("ReportTypeName")
-            
-            check_sql = "SELECT COUNT(*) AS count FROM ReportType WHERE ReportTypeID = %s"
-            cursor.execute(check_sql, (report_type_id,))
-            result = cursor.fetchone()
-            if result['count'] > 0:
-                return {"error": "Report Type ID already exists", "ReportTypeID": report_type_id}
-            else:
-                sql = 'CALL spCreateReportType(%s, %s)'
-                cursor.execute(sql, (report_type_id, report_type_name))
-                connection.commit()
-                return {"message": "Report type updated successfully"}
-            
-    except pymysql.MySQLError as err:
-        print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)}
-    finally:
-        connection.close()
-
-@app.put("/report-type/update/{report_type_id}")
-def update_report_type(report_type_id: str, report_type: dict = Body(...)):
-    connection = connect_to_database()
-    if not connection:
-        return {"error": "Failed to connect to database"}
-
-    try:
-        with connection.cursor() as cursor:
-            # Extract data from request body
-            report_type_name = report_type.get("reporttypename")
-            check_sql = "SELECT COUNT(*) AS count FROM ReportType WHERE ReportTypeID = %s"
-            cursor.execute(check_sql, (report_type_id,))
-            result = cursor.fetchone()
-            if result['count'] > 0:
-                sql = 'CALL spUpdateReportType(%s, %s)'
-                cursor.execute(sql, (report_type_id, report_type_name))
-                connection.commit()  # Commit changes
-
-                return {"message": "Report type updated successfully"}
-            else:
-                return {"error": "Report Type ID not found", "ReportTypeID": report_type_id}
-          
-    except pymysql.MySQLError as err:
-        print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)}
-    finally:
-        connection.close()
-
-@app.delete("/report-type/delete/{report_type_id}")
-def delete_report_type(report_type_id: str):
-    connection = connect_to_database()
-    if not connection:
-        return {"error": "Failed to connect to database"}
-
-    try:
-        with connection.cursor() as cursor:
-            check_sql = "SELECT COUNT(*) AS count FROM ReportType WHERE ReportTypeID = %s"
-            cursor.execute(check_sql, (report_type_id,))
-            result = cursor.fetchone()
-            if result['count'] > 0:
-                sql = 'CALL spDeleteReportType(%s)'
-                cursor.execute(sql, (report_type_id,))
-                connection.commit()  # Commit changes
-
-                return {"message": f"Report type with ID '{report_type_id}' deleted successfully"}
-            else:
-                return {"error": "Report Type ID not found", "ReportTypeID": report_type_id}
-          
-    except pymysql.MySQLError as err:
         print(f"Error calling stored procedure: {err}")
         return {"error": str(err)}
     finally:
@@ -1135,6 +821,12 @@ async def company_create_report_type(company_report_type: dict = Body(...)):
             company_isbiweeklyreportactive = company_report_type.get("IsBiWeeklyReportActive")
             company_ismonthlyreportactive = company_report_type.get("IsMonthlyReportActive")
             company_isbimonthlyreportactive = company_report_type.get("IsBiMonthlyReportActive")
+            LastModifiedBy = company_report_type.get("LastModifiedBy")
+
+            # Get current UTC datetime
+            utc_now = datetime.now(timezone.utc)
+            # Format as a string
+            utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
             
             check_sql = "SELECT COUNT(*) AS count FROM CompanyReportType WHERE CompanyReporterEmail = %s AND CID = %s"
             cursor.execute(check_sql, (company_reporter_email,cid))
@@ -1142,8 +834,8 @@ async def company_create_report_type(company_report_type: dict = Body(...)):
             if result['count'] > 0:
                 return {"error": "company Report Email already exists", "CompanyReportEmail": company_reporter_email}
             else:
-                sql = "CALL spCreateCompanyReportType(%s, %s, %s, %s, %s, %s, %s)"
-                cursor.execute(sql, (company_reporter_email, cid, company_isdailyreportactive, company_isweeklyreportactive, company_isbiweeklyreportactive, company_ismonthlyreportactive, company_isbimonthlyreportactive))
+                sql = "CALL spCreateCompanyReportType(%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                cursor.execute(sql, (company_reporter_email, cid, company_isdailyreportactive, company_isweeklyreportactive, company_isbiweeklyreportactive, company_ismonthlyreportactive, company_isbimonthlyreportactive, LastModifiedBy, utc_datetime_string))
                 connection.commit()
                 return {"message": "Company Report Email ID with data created successfully"}
 
@@ -1206,13 +898,19 @@ def update_report_type(company_reporteremail: str, cid: str, company_report_type
             company_isbiweeklyreportactive = company_report_type.get("IsBiWeeklyReportActive")
             company_ismonthlyreportactive = company_report_type.get("IsMonthlyReportActive")
             company_isbimonthlyreportactive = company_report_type.get("IsBiMonthlyReportActive")
+            LastModifiedBy = company_report_type.get("LastModifiedBy")
+
+            # Get current UTC datetime
+            utc_now = datetime.now(timezone.utc)
+            # Format as a string
+            utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
             
             check_sql = "SELECT COUNT(*) AS count FROM CompanyReportType WHERE CompanyReporterEmail = %s AND CID = %s"
             cursor.execute(check_sql, (company_reporteremail,cid))
             result = cursor.fetchone()
             if result['count'] > 0:
-                sql = 'CALL spUpdateCompanyReportType(%s, %s, %s, %s, %s, %s, %s)'
-                cursor.execute(sql, (company_reporteremail, cid , company_isdailyreportactive, company_isweeklyreportactive, company_isbiweeklyreportactive, company_ismonthlyreportactive, company_isbimonthlyreportactive))
+                sql = 'CALL spUpdateCompanyReportType(%s, %s, %s, %s, %s, %s, %s, %s, %s)'
+                cursor.execute(sql, (company_reporteremail, cid , company_isdailyreportactive, company_isweeklyreportactive, company_isbiweeklyreportactive, company_ismonthlyreportactive, company_isbimonthlyreportactive, LastModifiedBy, utc_datetime_string))
                 connection.commit()  # Commit changes
                 return {"message": "Company Report Email updated successfully"}
             else:
@@ -1223,20 +921,25 @@ def update_report_type(company_reporteremail: str, cid: str, company_report_type
     finally:
         connection.close()
 
-@app.delete("/company-report-type/delete/{company_reporteremail}/{cid}")
-def delete_report_type(company_reporteremail: str, cid: str):
+@app.put("/company-report-type/delete/{company_reporteremail}/{cid}/{LastModifiedBy}")
+def delete_report_type(company_reporteremail: str, cid: str, LastModifiedBy: str):
     connection = connect_to_database()
     if not connection:
         return {"error": "Failed to connect to database"}
 
     try:
         with connection.cursor() as cursor:
+            # Get current UTC datetime
+            utc_now = datetime.now(timezone.utc)
+            # Format as a string
+            utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
+
             check_sql = "SELECT COUNT(*) AS count FROM CompanyReportType WHERE CompanyReporterEmail = %s AND CID = %s"
             cursor.execute(check_sql, (company_reporteremail,cid))
             result = cursor.fetchone()
             if result['count'] > 0:
-                sql = 'CALL spDeleteCompanyReportType(%s, %s)'
-                cursor.execute(sql, (company_reporteremail,cid))
+                sql = 'CALL spDeleteCompanyReportType(%s, %s, %s, %s)'
+                cursor.execute(sql, (company_reporteremail,cid, LastModifiedBy, utc_datetime_string))
                 connection.commit()  # Commit changes
 
                 return {"message": f"Report type with Email '{company_reporteremail}' deleted successfully"}
@@ -1248,283 +951,6 @@ def delete_report_type(company_reporteremail: str, cid: str):
     finally:
         connection.close()
 
-@app.post("/report-schedules/create")
-async def create_report_schedule(report_schedule_data: dict = Body(...)):
-
-    connection = connect_to_database()
-    if not connection:
-        return {"error": "Failed to connect to database"}
-
-    try:
-        
-        report_id = report_schedule_data.get("ReportID")
-        cid = report_schedule_data.get("CID")
-        report_type_id = report_schedule_data.get("ReportTypeID") 
-        is_delivered = report_schedule_data.get("IsDelivered") 
-        is_active = report_schedule_data.get("IsActive") 
-        report_time_generated = report_schedule_data.get("ReportTimeGenerated") 
-        report_time_sent = report_schedule_data.get("ReportTimeSent")
-        text_report_time = report_schedule_data.get("TextReportTime") 
-        created_at = report_schedule_data.get("CreatedAt") 
-        updated_at = report_schedule_data.get("UpdatedAt")  
-
-        with connection.cursor() as cursor:
-            check_sql = "SELECT COUNT(*) AS count FROM ReportSchedule WHERE ReportID = %s"
-            cursor.execute(check_sql, (report_id,))
-            result = cursor.fetchone()
-            if result['count'] > 0:
-                return {"error": "Report schedule Report id already exists", "ReportID": report_id}
-            else:
-                sql = """
-                    CALL spCreateReportSchedule(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """
-                cursor.execute(sql, (report_id, cid, report_type_id, is_delivered, is_active,
-                                    report_time_generated, report_time_sent, text_report_time, created_at, updated_at))
-                connection.commit()
-
-                return {"message": "Report schedule created successfully"}
-
-    except pymysql.MySQLError as err:
-        print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)} 
-
-    finally:
-        connection.close()
-
-@app.put("/report-schedules/update/{reportid},{cid}")
-async def update_report_schedule(reportid: str ,
-                                 cid: str,
-                                 update_data: dict = Body(...)):
-
-    connection = connect_to_database()
-    if not connection:
-        return {"error": "Failed to connect to database"}
-
-    try:
-        report_type_id = update_data.get("ReportTypeID") 
-        is_delivered = update_data.get("IsDelivered") 
-        is_active = update_data.get("IsActive") 
-        report_time_generated = update_data.get("ReportTimeGenerated") 
-        report_time_sent = update_data.get("ReportTimeSent")
-        text_report_time = update_data.get("TextReportTime") 
-        created_at = update_data.get("CreatedAt") 
-        updated_at = update_data.get("UpdatedAt")
-
-        with connection.cursor() as cursor:
-            check_sql = "SELECT COUNT(*) AS count FROM ReportSchedule WHERE ReportID = %s"
-            cursor.execute(check_sql, (reportid,))
-            result = cursor.fetchone()
-            
-            if result['count'] > 0:
-                sql = """
-                    CALL spUpdateReportSchedule(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """
-                cursor.execute(sql, (reportid, cid, report_type_id, is_delivered, is_active,
-                                    report_time_generated, report_time_sent, text_report_time, created_at, updated_at))
-                connection.commit()
-
-                return {"message": "Report schedule updated successfully"}
-            else:
-                return {"error": "Report schedule Report id not found", "ReportID": reportid}
-    except pymysql.MySQLError as err:
-        print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)}
-
-    finally:
-        connection.close()
-
-@app.delete("/report-schedules/delete/{reportid},{cid}")
-async def delete_report_schedule(reportid: str,
-                                 cid: str):
-
-
-    connection = connect_to_database()
-    if not connection:
-        return {"error": "Failed to connect to database"}
-
-    try:
-        with connection.cursor() as cursor:
-            check_sql = "SELECT COUNT(*) AS count FROM ReportSchedule WHERE ReportID = %s"
-            cursor.execute(check_sql, (reportid,))
-            result = cursor.fetchone()
-            
-            if result['count'] > 0:
-                sql = "CALL spDeleteReportSchedule(%s, %s)"
-                cursor.execute(sql, (reportid, cid))
-                connection.commit()
-
-                return  {"message": "Report schedule deleted successfully"} 
-            else:
-                return {"error": "Report schedule Report id not found", "ReportID": reportid}
-
-    except pymysql.MySQLError as err:
-        print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)}
-    
-    finally:
-        connection.close()
-
-@app.get("/report-schedules/get/{reportid},{cid}", response_model=dict)
-async def get_report_schedule(reportid: str ,
-                              cid: str ):
-
-
-    connection = connect_to_database()
-    if not connection:
-        return {"error": "Failed to connect to database"},
-
-    try:
-        with connection.cursor() as cursor:
-            sql = "CALL spGetReportSchedule(%s, %s)"
-            cursor.execute(sql, (reportid, cid))
-            myresult = cursor.fetchone()  
-
-            if myresult:
-                return myresult
-            else:
-                return {"message": f"Report schedule with ID '{reportid}' and company ID '{cid}' not found"}
-
-    except pymysql.MySQLError as err:
-        print(f"Error calling stored procedure: {err}")
-        return {"error": str(err)}
-
-    finally:
-        connection.close()
-
-#getting the transaction Status
-
-@app.get("/transaction/get/{transaction_id}")
-async def get_transaction(transaction_id: str):
-  connection = connect_to_database()
-  if not connection:
-      return {"error": "Failed to connect to database"}
-
-  try:
-      with connection.cursor() as mycursor:
-          sql = "CALL spGetTransactionStatus(%s);"
-          mycursor.execute(sql, (transaction_id,))
-          transaction = mycursor.fetchone()  # Fetch only one row (if found)
-          if transaction:
-              return transaction
-          else:
-              return {"message": f"Transaction with ID '{transaction_id}' not found"}
-
-  except pymysql.Error as err:
-      print(f"Error calling stored procedure: {err}")
-      return {"error": str(err)}
-  finally:
-      connection.close()
-
-# Creating transaction status
-@app.post("/transaction/create")
-async def create_transaction(transaction: dict = Body(...)):
-  connection = connect_to_database()
-  if not connection:
-      return {"error": "Failed to connect to database"}
-
-  try:
-      with connection.cursor() as mycursor:
-          # Extract data from request body
-          TransactionID = transaction.get("TransactionID")
-          CID = transaction.get("CID")
-          UserName = transaction.get("UserName")
-          CreditCardEncrypted = transaction.get("CreditCardEncrypted")
-          ExpiryDate = transaction.get("ExpiryDate")  
-          CVV = transaction.get("CVV")
-          TransactionAmount = transaction.get("TransactionAmount")
-          TransactionStartTime = transaction.get("TransactionStartTime")  
-          TransactionEndTime = transaction.get("TransactionEndTime")  
-          TransactionStatus = transaction.get("TransactionStatus")
-          BillingAddress = transaction.get("BillingAddress")
-
-          check_sql = "SELECT COUNT(*) AS count FROM TransactionStatus WHERE TransactionID = %s"
-          mycursor.execute(check_sql,(TransactionID))
-          result = mycursor.fetchone()
-          if result['count'] > 0:
-            return {"error": "Transaction Id already exists", "TransactionID": TransactionID}
-          else:
-            # Call the stored procedure
-            sql = "CALL spCreateTransactionStatus(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
-            mycursor.execute(sql, (TransactionID, CID, UserName, CreditCardEncrypted, ExpiryDate, CVV, TransactionAmount, TransactionStartTime, TransactionEndTime, TransactionStatus, BillingAddress))
-            connection.commit() 
-
-            return {"message": "Transaction created successfully"}
-
-  except pymysql.Error as err:
-      print(f"Error calling stored procedure: {err}")
-      return {"error": str(err)}
-  finally:
-      connection.close()
-
-# updating the transaction status 
-@app.put("/transaction/update/{transaction_id}")
-async def update_transaction(transaction_id: str, transaction: dict = Body(...)):
-  connection = connect_to_database()
-  if not connection:
-      return {"error": "Failed to connect to database"}
-
-  try:
-      with connection.cursor() as mycursor:
-          # Extract data from request body and path parameter
-          CID = transaction.get("CID")
-          UserName = transaction.get("UserName")
-          CreditCardEncrypted = transaction.get("CreditCardEncrypted")
-          ExpiryDate = transaction.get("ExpiryDate")  # Assuming a valid date format
-          CVV = transaction.get("CVV")
-          TransactionAmount = transaction.get("TransactionAmount")
-          TransactionStartTime = transaction.get("TransactionStartTime")  # Assuming a valid datetime format
-          TransactionEndTime = transaction.get("TransactionEndTime")  # Assuming a valid datetime format
-          TransactionStatus = transaction.get("TransactionStatus")
-          BillingAddress = transaction.get("BillingAddress")
-
-          # Call the stored procedure
-          check_sql = "SELECT COUNT(*) AS count FROM TransactionStatus WHERE TransactionID = %s"
-          mycursor.execute(check_sql,(transaction_id))
-          result = mycursor.fetchone()
-          if result['count'] > 0:
-              sql = "CALL spUpdateTransactionStatus(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);"
-              mycursor.execute(sql, (transaction_id, CID, UserName, CreditCardEncrypted, ExpiryDate, CVV, TransactionAmount, TransactionStartTime, TransactionEndTime, TransactionStatus, BillingAddress))
-              connection.commit()  # Commit changes
-
-              return {"message": f"Transaction with ID '{transaction_id}' updated successfully"}
-          else:
-              return {"error":"Transaction Id not found", "TransactionID": transaction_id}
-  
-
-  except pymysql.Error as err:
-      print(f"Error calling stored procedure: {err}")
-      return {"error": str(err)}
-  finally:
-      connection.close()
-
-# deleting the transaction status 
-@app.delete("/transaction/delete/{transaction_id}")
-async def delete_transaction(transaction_id: str):
-  connection = connect_to_database()
-  if not connection:
-      return {"error": "Failed to connect to database"}
-
-  try:
-      with connection.cursor() as mycursor:
-          
-          check_sql = "SELECT COUNT(*) AS count FROM TransactionStatus WHERE TransactionID = %s"
-          mycursor.execute(check_sql,(transaction_id))
-          result = mycursor.fetchone()
-          if result['count'] > 0:
-          # Call the stored procedure
-            sql = "CALL spDeleteTransactionStatus(%s);"
-            mycursor.execute(sql, (transaction_id,))
-            connection.commit()  # Commit changes
-
-            return {"message": f"Transaction with ID '{transaction_id}' deleted successfully"}
-          else:
-              return {"error": "Transaction Id not found", "TransactionID": transaction_id}
-
-  except pymysql.Error as err:
-      print(f"Error calling stored procedure: {err}")
-      return {"error": str(err)}
-  finally:
-      connection.close()
 
 @app.post("/dailyreport/create")
 async def create_daily_report(report: dict = Body(...)):
@@ -1544,6 +970,12 @@ async def create_daily_report(report: dict = Body(...)):
             check_out_snap = report.get("CheckOutSnap")
             check_out_time = report.get("CheckOutTime")
             time_worked = report.get("TimeWorked")
+            LastModifiedBy = report.get("LastModifiedBy")
+
+            # Get current UTC datetime
+            utc_now = datetime.now(timezone.utc)
+            # Format as a string
+            utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
 
             check_sql = "SELECT COUNT(*) AS count FROM DailyReportTable WHERE EmpID = %s AND CID = %s AND CheckInTime = %s"
             cursor.execute(check_sql,(emp_id, cid, check_in_time))
@@ -1553,13 +985,13 @@ async def create_daily_report(report: dict = Body(...)):
             else:
                 sql = """
                     CALL spCreateDailyReport(
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                     );
                 """
                 cursor.execute(sql, (
                     emp_id, cid, type_id, check_in_snap,
                     check_in_time, check_out_snap, check_out_time,
-                    time_worked, report_date
+                    time_worked, report_date, LastModifiedBy, utc_datetime_string
                 ))
                 connection.commit()  # Commit changes
 
@@ -1610,6 +1042,12 @@ async def update_daily_report(emp_id: str,cid: str, CheckInTime: str, report: di
             check_out_snap = report.get("CheckOutSnap")
             check_out_time = report.get("CheckOutTime")
             time_worked = report.get("TimeWorked")
+            LastModifiedBy = report.get("LastModifiedBy")
+
+            # Get current UTC datetime
+            utc_now = datetime.now(timezone.utc)
+            # Format as a string
+            utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
 
             check_sql = "SELECT COUNT(*) AS count FROM DailyReportTable WHERE EmpID = %s AND CID = %s AND CheckInTime = %s"
             cursor.execute(check_sql,(emp_id, cid, CheckInTime))
@@ -1617,13 +1055,13 @@ async def update_daily_report(emp_id: str,cid: str, CheckInTime: str, report: di
             if result['count'] > 0:
                 sql = """
                     CALL spUpdateDailyReport(
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                     );
                 """
                 cursor.execute(sql, (
                     emp_id, cid, current_date, type_id, check_in_snap, CheckInTime,
                     check_out_snap, check_out_time,
-                    time_worked
+                    time_worked, LastModifiedBy, utc_datetime_string
                 ))
                 connection.commit() 
 
@@ -1638,21 +1076,26 @@ async def update_daily_report(emp_id: str,cid: str, CheckInTime: str, report: di
         connection.close()
 
 # Endpoint to delete a daily report
-@app.delete("/dailyreport/delete/{emp_id}/{cid}/{checkinTime}")
-async def delete_daily_report(emp_id: str, cid: str, checkinTime: str):
+@app.put("/dailyreport/delete/{emp_id}/{cid}/{checkinTime}/{LastModifiedBy}")
+async def delete_daily_report(emp_id: str, cid: str, checkinTime: str, LastModifiedBy: str):
     connection = connect_to_database()
     if not connection:
         return {"error": "Failed to connect to database"}
 
     try:
         with connection.cursor() as cursor:
+            # Get current UTC datetime
+            utc_now = datetime.now(timezone.utc)
+            # Format as a string
+            utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
+
             check_sql = "SELECT COUNT(*) AS count FROM DailyReportTable WHERE EmpID = %s AND CID = %s AND CheckInTime = %s"
             cursor.execute(check_sql,(emp_id, cid, checkinTime))
             result = cursor.fetchone()
             if result['count'] > 0:
 
-                sql = "CALL spDeleteDailyReport(%s, %s, %s);"
-                cursor.execute(sql, (emp_id, cid, checkinTime))
+                sql = "CALL spDeleteDailyReport(%s, %s, %s, %s, %s);"
+                cursor.execute(sql, (emp_id, cid, checkinTime, LastModifiedBy, utc_datetime_string))
                 connection.commit()
 
                 return {"message": "Daily report deleted successfully"}
@@ -1842,10 +1285,16 @@ async def create_device(device: dict = Body(...)):
             access_key = device.get("AccessKey")
             access_key_created_datetime = device.get("AccessKeyCreatedDateTime")
             is_active = True
+            LastModifiedBy = device.get("LastModifiedBy")
+
+            # Get current UTC datetime
+            utc_now = datetime.now(timezone.utc)
+            # Format as a string
+            utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
 
             # Execute the stored procedure
-            sql = "CALL spCreateDevice(%s, %s, %s, %s, %s, %s, %s)"
-            cursor.execute(sql, (timezone, device_id, cid, device_name, access_key, access_key_created_datetime,is_active))
+            sql = "CALL spCreateDevice(%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            cursor.execute(sql, (timezone, device_id, cid, device_name, access_key, access_key_created_datetime,is_active, LastModifiedBy, utc_datetime_string))
             connection.commit()
 
             return {"message": "Device created successfully"}
@@ -1856,12 +1305,9 @@ async def create_device(device: dict = Body(...)):
     finally:
         connection.close()
 
-
-
-
 # DELETE request to delete a Device
-@app.put("/device/delete/{access_key}/{cid}")
-async def delete_device(access_key: str, cid: str):
+@app.put("/device/delete/{access_key}/{cid}/{LastModifiedBy}")
+async def delete_device(access_key: str, cid: str, LastModifiedBy: str):
     connection = connect_to_database()
     if not connection:
         return {"error": "Failed to connect to database"}
@@ -1869,14 +1315,19 @@ async def delete_device(access_key: str, cid: str):
     try:
         with connection.cursor() as cursor:
 
+            # Get current UTC datetime
+            utc_now = datetime.now(timezone.utc)
+            # Format as a string
+            utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
+
             # Check if device is already exists
             check_sql = "SELECT COUNT(*) AS count FROM Device WHERE AccessKey = %s AND CID = %s"
             cursor.execute(check_sql, (access_key, cid))
             result = cursor.fetchone()
         
             if result['count'] > 0:
-                sql = "CALL spDeleteDevice(%s, %s);"  # Using positional parameter here
-                cursor.execute(sql, (access_key, cid))
+                sql = "CALL spDeleteDevice(%s, %s, %s, %s);"  # Using positional parameter here
+                cursor.execute(sql, (access_key, cid, LastModifiedBy, utc_datetime_string))
                 connection.commit()  # Commit changes
 
                 return {"message": f"Device with Access Key '{access_key}' deleted successfully"}
@@ -1903,6 +1354,12 @@ async def update_daily_report(access_key: str,cid: str, device: dict = Body(...)
             device_name = device.get("DeviceName")
             access_key_created_datetime = device.get("AccessKeyCreatedDateTime")
             is_active = True
+            LastModifiedBy = device.get("LastModifiedBy")
+
+            # Get current UTC datetime
+            utc_now = datetime.now(timezone.utc)
+            # Format as a string
+            utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
 
             check_sql = "SELECT COUNT(*) AS count FROM Device WHERE AccessKey = %s AND CID = %s"
             cursor.execute(check_sql,(access_key, cid))
@@ -1910,11 +1367,11 @@ async def update_daily_report(access_key: str,cid: str, device: dict = Body(...)
             if result['count'] > 0:
                 sql = """
                     CALL spUpdateDevice(
-                        %s, %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s
                     );
                 """
                 cursor.execute(sql, (
-                    timezone, device_id, cid, device_name, access_key, access_key_created_datetime, is_active
+                    timezone, device_id, cid, device_name, access_key, access_key_created_datetime, is_active, LastModifiedBy, utc_datetime_string
                 ))
                 connection.commit() 
 
@@ -1938,9 +1395,15 @@ def update_report_type(cid: str, report_type: dict = Body(...)):
         with connection.cursor() as cursor:
             # Extract data from request body
             report_type = report_type.get("ReportType")
+            LastModifiedBy = report_type.get("LastModifiedBy")
 
-            sql = 'CALL spUpdateAdminReportType(%s, %s)'
-            cursor.execute(sql, (cid,report_type))
+            # Get current UTC datetime
+            utc_now = datetime.now(timezone.utc)
+            # Format as a string
+            utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
+
+            sql = 'CALL spUpdateAdminReportType(%s, %s, %s, %s)'
+            cursor.execute(sql, (cid,report_type, LastModifiedBy, utc_datetime_string))
             connection.commit()
 
             return {"message": "Report type updated successfully"}
@@ -2431,19 +1894,48 @@ async def set_create_contact(contact: dict = Body(...)):
             phone_number = contact.get("PhoneNumber")
             Message = contact.get("Message")
             Address = contact.get("Address")
+            LastModifiedBy = contact.get("LastModifiedBy")
+
+            # Get current UTC datetime
+            utc_now = datetime.now(timezone.utc)
+            # Format as a string
+            utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
 
             sql = """
                 CALL spCreateWebsiteContactUs(
-                    %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                 );
             """
             cursor.execute(sql, (
                 FirstName, LastName, Email, WhatsappNumber,
-                Subject, phone_number, Message, Address
+                Subject, phone_number, Message, Address, LastModifiedBy, utc_datetime_string
             ))
             connection.commit()
 
-            return {"message": "Contact us info updated successfully"}
+            # Set up email parameters
+            sender = sender_mail
+            app_password = app_passcode
+            subject = "Thank You for Your Interest in Our Tap-Time Application"
+
+            # Email content in HTML
+            html_content = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1; color: #333;">
+                <p>Dear {FirstName+ " "+ LastName},</p>
+
+            <p>Thank you for reaching out to us via our website’s contact form and expressing interest in our web application. We are excited to learn that you are considering our solution for your business needs.\n\nOur web app is designed to offer Employee management system, and we believe it could greatly support your goals.\n\nWe would love to discuss your requirements in more detail and provide a customized demonstration. Please let us know a convenient time for a meeting, or feel free to share more details on your expectations.\n\nLooking forward to hearing from you!</p>
+            <p>Best regards,<br>Tap-Time Team</p>
+            </body>
+            </html>
+            """
+
+            # Initialize Yagmail with the sender's Gmail credentials
+            yag = yagmail.SMTP(user=sender, password=app_password)
+
+            # Sending the email
+            yag.send(to=[Email], subject=subject, contents=html_content)
+
+            return {"message": "Email sent successfully!"}
 
     except pymysql.Error as err:
         print(f"Error calling stored procedure: {err}")
