@@ -26,10 +26,10 @@ stripe.api_key = 'sk_test_51OB8JlIPoM7JHRT2Dz4UeKOU5Snexc9lFpmu2Hp6d0PfCZKCwqWE4
 def connect_to_database():
     try:
         connection = pymysql.connect(
-            host="icodetestdb.cxms2oikutcu.us-west-2.rds.amazonaws.com",
-            user="admin",
-            password="AWSpass01#",
-            database="icodetestdb",
+            host="taptime.ccvfbf5xwxwq.us-west-2.rds.amazonaws.com",
+            user="developer",
+            password="Arjavapass01#",
+            database="taptimeprod",
             cursorclass=pymysql.cursors.DictCursor 
         )
         return connection
@@ -1278,8 +1278,8 @@ async def create_device(device: dict = Body(...)):
     try:
         with connection.cursor() as cursor:
             # Extract data from request body
-            timezone = device.get("TimeZone") 
-            device_id = device.get("DeviceID")  # Assuming "deviceID" is the key in the request body
+            time_zone = device.get("TimeZone") 
+            device_id = device.get("DeviceID")
             cid = device.get("CID")
             device_name = device.get("DeviceName")
             access_key = device.get("AccessKey")
@@ -1294,7 +1294,7 @@ async def create_device(device: dict = Body(...)):
 
             # Execute the stored procedure
             sql = "CALL spCreateDevice(%s, %s, %s, %s, %s, %s, %s, %s, %s)"
-            cursor.execute(sql, (timezone, device_id, cid, device_name, access_key, access_key_created_datetime,is_active, LastModifiedBy, utc_datetime_string))
+            cursor.execute(sql, (time_zone, device_id, cid, device_name, access_key, access_key_created_datetime,is_active, LastModifiedBy, utc_datetime_string))
             connection.commit()
 
             return {"message": "Device created successfully"}
@@ -1393,8 +1393,9 @@ def update_report_type(cid: str, report_type: dict = Body(...)):
 
     try:
         with connection.cursor() as cursor:
+
             # Extract data from request body
-            report_type = report_type.get("ReportType")
+            report_type_val = report_type.get("ReportType")
             LastModifiedBy = report_type.get("LastModifiedBy")
 
             # Get current UTC datetime
@@ -1403,7 +1404,7 @@ def update_report_type(cid: str, report_type: dict = Body(...)):
             utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
 
             sql = 'CALL spUpdateAdminReportType(%s, %s, %s, %s)'
-            cursor.execute(sql, (cid,report_type, LastModifiedBy, utc_datetime_string))
+            cursor.execute(sql, (cid,report_type_val, LastModifiedBy, utc_datetime_string))
             connection.commit()
 
             return {"message": "Report type updated successfully"}
