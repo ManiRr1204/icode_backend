@@ -431,7 +431,7 @@ async def update_customer(customer_id: str, customer = Body(...)):
             else:
                 return {"error": "Customer id not found", "CustomerID": customer_id} 
 
-    except pymysql.connector.Error as err:
+    except pymysql.Error as err:
         print(f"Error calling stored procedure: {err}")
         return {"error": str(err)}
     finally:
@@ -934,7 +934,7 @@ def delete_report_type(company_reporteremail: str, cid: str, LastModifiedBy: str
             # Format as a string
             utc_datetime_string = utc_now.strftime("%Y-%m-%d %H:%M:%S")
 
-            check_sql = "SELECT COUNT(*) AS count FROM CompanyReportType WHERE CompanyReporterEmail = %s AND CID = %s"
+            check_sql = "SELECT COUNT(*) AS count FROM CompanyReportType WHERE CompanyReporterEmail = %s AND CID = %s AND IsActive = TRUE"
             cursor.execute(check_sql, (company_reporteremail,cid))
             result = cursor.fetchone()
             if result['count'] > 0:
@@ -1349,7 +1349,7 @@ async def update_daily_report(access_key: str,cid: str, device: dict = Body(...)
 
     try:
         with connection.cursor() as cursor:
-            timezone = device.get("TimeZone") 
+            timeZone = device.get("TimeZone") 
             device_id = device.get("DeviceID")
             device_name = device.get("DeviceName")
             access_key_created_datetime = device.get("AccessKeyCreatedDateTime")
@@ -1371,7 +1371,7 @@ async def update_daily_report(access_key: str,cid: str, device: dict = Body(...)
                     );
                 """
                 cursor.execute(sql, (
-                    timezone, device_id, cid, device_name, access_key, access_key_created_datetime, is_active, LastModifiedBy, utc_datetime_string
+                    timeZone, device_id, cid, device_name, access_key, access_key_created_datetime, is_active, LastModifiedBy, utc_datetime_string
                 ))
                 connection.commit() 
 

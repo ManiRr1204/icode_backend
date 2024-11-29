@@ -1176,3 +1176,42 @@ BEGIN
 END //
 
 DELIMITER ;
+
+
+DELIMITER //
+
+CREATE DEFINER=`admin`@`%` PROCEDURE `spUpdateCustomer`(
+    IN p_CustomerID CHAR(36),
+    IN p_CID CHAR(36),
+    IN p_FName VARCHAR(255),
+    IN p_LName VARCHAR(255),
+    IN p_Address VARCHAR(255),
+    IN p_PhoneNumber VARCHAR(255),
+    IN p_Email VARCHAR(255),
+    IN p_IsActive BOOLEAN,
+    IN p_LastModifiedDateTime VARCHAR(255),
+    IN p_LastModifiedBy VARCHAR(255)
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+    END;
+
+    START TRANSACTION;
+
+    UPDATE Customer
+    SET CID = COALESCE(p_CID,CID),
+        FName = COALESCE(p_FName,FName),
+        LName = COALESCE(p_LName,LName),
+        Address = COALESCE(p_Address,Address),
+        PhoneNumber = COALESCE(p_PhoneNumber,PhoneNumber),
+        Email = COALESCE(p_Email,Email),
+        LastModifiedDateTime = COALESCE(p_LastModifiedDateTime,LastModifiedDateTime),
+        LastModifiedBy = COALESCE(p_LastModifiedBy,LastModifiedBy)
+    WHERE CustomerID = p_CustomerID AND IsActive = TRUE;
+
+    COMMIT;
+END //
+
+DELIMITER ;
